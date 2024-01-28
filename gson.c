@@ -212,25 +212,26 @@ static Token scan_token(Scanner *scanner)
 
 int main()
 {
-    const char *source = "{ \n\
-    \"name\": \"Matt\",         \n\
-    \"gender\": \"male\",       \n\
-    \"age\": 30,              \n\
-    \"has_kids\": true,       \n\
-    \"kids\":                 \n\
-    [                       \n\
-        {                   \n\
-            \"name\": \"Sissy\",\n\
-            \"age\": 5        \n\
-            \"toys\": false\n\
-        },                  \n\
-        {                   \n\
-            \"name\": \"August\",\n\
-            \"age\": 7\n\
-            \"toys\": null\n\
-        }\n\
-    ]\n\
+    const char *source = "{         \n\
+    \"name\": \"Matt\",             \n\
+    \"gender\": \"male\",           \n\
+    \"age\": 30,                    \n\
+    \"has_kids\": true,             \n\
+    \"kids\":                       \n\
+    [                               \n\
+        {                           \n\
+            \"name\": \"Sissy\",    \n\
+            \"age\": 5              \n\
+            \"toys\": false         \n\
+        },                          \n\
+        {                           \n\
+            \"name\": \"August\",   \n\
+            \"age\": 7              \n\
+            \"toys\": null          \n\
+        }                           \n\
+    ]                               \n\
 }";
+
     printf("DEBUG STRING:\n%s\n", source);
 
     Scanner *scanner = init_scanner(source);
