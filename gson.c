@@ -27,7 +27,7 @@ typedef struct {
     int line;
 } Scanner;
 
-static Scanner* initScanner(const char *source)
+static Scanner* init_scanner(const char *source)
 {
     Scanner *scanner = (Scanner*)malloc(sizeof(Scanner));
     scanner->start = source;
@@ -36,7 +36,7 @@ static Scanner* initScanner(const char *source)
     return scanner;
 }
 
-static Token makeToken(TokenType type, Scanner *scanner)
+static Token make_token(TokenType type, Scanner *scanner)
 {
     Token token;
     token.type = type;
@@ -47,7 +47,7 @@ static Token makeToken(TokenType type, Scanner *scanner)
     return token;
 }
 
-static Token errorToken(Scanner *scanner, const char *message)
+static Token error_token(Scanner *scanner, const char *message)
 {
     Token token;
     token.type = TOKEN_ERROR;
@@ -57,7 +57,7 @@ static Token errorToken(Scanner *scanner, const char *message)
     return token;
 }
 
-static bool isAtEnd(Scanner *scanner)
+static bool is_at_end(Scanner *scanner)
 {
     return *scanner->current == '\0';
 }
@@ -67,9 +67,9 @@ static char peek(Scanner *scanner)
     return *scanner->current;
 }
 
-static char peekNext(Scanner *scanner)
+static char peek_next(Scanner *scanner)
 {
-    if (isAtEnd(scanner)) return '\0';
+    if (is_at_end(scanner)) return '\0';
     return scanner->current[1];
 }
 
@@ -79,7 +79,7 @@ static char advance(Scanner *scanner)
     return scanner->current[-1];
 }
 
-static void skipWhiteSpace(Scanner *scanner)
+static void skip_white_space(Scanner *scanner)
 {
     for (;;)
     {
@@ -103,45 +103,45 @@ static void skipWhiteSpace(Scanner *scanner)
 
 static bool match(char expected, Scanner *scanner)
 {
-    if (isAtEnd(scanner)) return false;
+    if (is_at_end(scanner)) return false;
     if (*scanner->current != expected) return false;
     scanner->current++;
     return true;
 }
 
-static bool isDigit(char c)
+static bool is_digit(char c)
 {
     return c >= '0' && c <= '9';
 }
 
 static Token string(Scanner *scanner, char quoteSymbol)
 {
-    while ((peek(scanner) != '"') && !isAtEnd(scanner))
+    while ((peek(scanner) != '"') && !is_at_end(scanner))
     {
         if (peek(scanner) == '\n') scanner->line++;
         advance(scanner);
     }
 
-    if (isAtEnd(scanner)) return errorToken(scanner, "Unterminated string");
+    if (is_at_end(scanner)) return error_token(scanner, "Unterminated string");
 
     if (advance(scanner) != quoteSymbol)
     {
-        return errorToken(scanner, "String quoted with non-matching quotes");
+        return error_token(scanner, "String quoted with non-matching quotes");
     }
-    return makeToken(TOKEN_STRING, scanner);
+    return make_token(TOKEN_STRING, scanner);
 }
 
 static Token number(Scanner *scanner)
 {
-    while (isDigit(peek(scanner))) advance(scanner);
+    while (is_digit(peek(scanner))) advance(scanner);
 
-    if (peek(scanner) == '.' && isDigit(peekNext(scanner)))
+    if (peek(scanner) == '.' && is_digit(peek_next(scanner)))
     {
         advance(scanner);
-        while (isDigit(peek(scanner))) advance(scanner);
+        while (is_digit(peek(scanner))) advance(scanner);
     }
 
-    return makeToken(TOKEN_NUMBER, scanner);
+    return make_token(TOKEN_NUMBER, scanner);
 }
 
 static Token boolean(Scanner *scanner)
@@ -153,16 +153,16 @@ static Token boolean(Scanner *scanner)
     {
         while (peek(scanner) != 'e') advance(scanner);
         advance(scanner);
-        return makeToken(TOKEN_TRUE, scanner);
+        return make_token(TOKEN_TRUE, scanner);
     }
     else if (strncmp(false_str, scanner->current - 1, strlen(false_str)) == 0)
     {
         while (peek(scanner) != 'e') advance(scanner);
         advance(scanner);
-        return makeToken(TOKEN_FALSE, scanner);
+        return make_token(TOKEN_FALSE, scanner);
     }
 
-    return errorToken(scanner, "Unexpected keyword");
+    return error_token(scanner, "Unexpected keyword");
 }
 
 static Token null(Scanner *scanner)
@@ -174,40 +174,40 @@ static Token null(Scanner *scanner)
         while (peek(scanner) != 'l') advance(scanner);
         advance(scanner);
         advance(scanner);
-        return makeToken(TOKEN_NULL_VAL, scanner);
+        return make_token(TOKEN_NULL_VAL, scanner);
     }
 
     strncpy(debugstr, scanner->start, scanner->current - scanner->start);
     printf("DEBUG: %s\n", debugstr);
 
-    return errorToken(scanner, "Unexpected keyword");
+    return error_token(scanner, "Unexpected keyword");
 }
 
-static Token scanToken(Scanner *scanner)
+static Token scan_token(Scanner *scanner)
 {
-    skipWhiteSpace(scanner);
+    skip_white_space(scanner);
     scanner->start = scanner->current;
 
-    if (isAtEnd(scanner)) return makeToken(TOKEN_EOF, scanner);
+    if (is_at_end(scanner)) return make_token(TOKEN_EOF, scanner);
 
     char c = advance(scanner);
-    if (isDigit(c)) return number(scanner);
+    if (is_digit(c)) return number(scanner);
 
     switch(c)
     {
-        case '{': return makeToken(TOKEN_LEFT_BRACE, scanner);
-        case '}': return makeToken(TOKEN_RIGHT_BRACE, scanner);
-        case '[': return makeToken(TOKEN_LEFT_BRACKET, scanner);
-        case ']': return makeToken(TOKEN_RIGHT_BRACKET, scanner);
-        case ',': return makeToken(TOKEN_COMMA, scanner);
-        case ':': return makeToken(TOKEN_COLON, scanner);
+        case '{': return make_token(TOKEN_LEFT_BRACE, scanner);
+        case '}': return make_token(TOKEN_RIGHT_BRACE, scanner);
+        case '[': return make_token(TOKEN_LEFT_BRACKET, scanner);
+        case ']': return make_token(TOKEN_RIGHT_BRACKET, scanner);
+        case ',': return make_token(TOKEN_COMMA, scanner);
+        case ':': return make_token(TOKEN_COLON, scanner);
         case '"': return string(scanner, '"');
         case '\'': return string(scanner, '\'');
         case 't': return boolean(scanner);
         case 'f': return boolean(scanner);
         case 'n': return null(scanner);
     }
-    return errorToken(scanner, "Unexpected Character.");
+    return error_token(scanner, "Unexpected Character.");
 }
 
 int main()
@@ -233,11 +233,11 @@ int main()
 }";
     printf("DEBUG STRING:\n%s\n", source);
 
-    Scanner *scanner = initScanner(source);
+    Scanner *scanner = init_scanner(source);
     Token token;
     while (token.type != TOKEN_EOF)
     {
-        token = scanToken(scanner);
+        token = scan_token(scanner);
         TokenType type = token.type;
         int line = token.line;
         const char *start = token.start;
