@@ -11,14 +11,15 @@ typedef enum {
     JSON_NULL_VAL,
 } JSONType;
 
-struct JSONNode {
+typedef struct JSONNode {
     JSONType type;
     char *key;
     char *str_val;
     float num_val;
     struct JSONNode *child;
-    struct JSONNode *parent;
     struct JSONNode *next;
-};
+} JSONNode;
+
+extern JSONNode* gson_parse(char *source);
 
 #endif

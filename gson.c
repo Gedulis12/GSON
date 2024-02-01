@@ -28,8 +28,8 @@ typedef struct {
 } Scanner;
 
 typedef struct {
-    Token current;
     Token previous;
+    Token current;
     int depth;
     bool had_error;
 } Parser;
@@ -50,7 +50,6 @@ static Token token_make(TokenType type, Scanner *scanner)
     token.start = scanner->start;
     token.length = (int)(scanner->current - scanner->start);
     token.line = scanner->line;
-
     return token;
 }
 
@@ -244,9 +243,56 @@ static void parser_advance(Parser *parser, Scanner *scanner)
 }
 
 
+static JSONNode* gson_node_create()
+{
+    JSONNode *node = (JSONNode*)malloc(sizeof(JSONNode));
+    return node;
+}
+
+// either pass parser and scanner to this function and continue recursivelly or handle the closing of objects somewhere else
+static JSONNode* gson_node_object()
+{
+    JSONNode *node = gson_node_create();
+    node->type = JSON_OBJECT;
+    return node;
+}
+
+JSONNode* gson_parse(char *source)
+{
+    JSONNode *node = (JSONNode*)malloc(sizeof(JSONNode));
+    Scanner *scanner = scanner_init(source);
+    Parser *parser = parser_init();
+    TokenType type;
+
+    while (parser->current.type != TOKEN_EOF)
+    {
+        parser_advance(parser, scanner);
+        type = parser->current.type;
+        switch (type)
+        {
+            case TOKEN_LEFT_BRACE:
+                gson_node_object();
+                parser->depth++;
+            default: return NULL;
+        }
+
+
+        // DEBUG
+        int line = parser->current.line;
+        const char *start = parser->current.start;
+        int length = parser->current.length;
+
+        char *debug_str = malloc((sizeof(char) * length) + 1);
+        strncpy(debug_str, start, length);
+        printf("DEBUG PARSER: type: %d, line: %d, value: %s, length: %d\n", type, line, debug_str, length);
+    }
+
+    return NULL;
+}
+
 int main()
 {
-    const char *source = "{         \n\
+    char *source = "{               \n\
     \"name\": \"Matt\",             \n\
     \"gender\": \"male\",           \n\
     \"age\": 30,                    \n\
@@ -259,7 +305,7 @@ int main()
             \"toys\": false         \n\
         },                          \n\
         {                           \n\
-            \"name\": \"Augu\\nst\",   \n\
+            \"name\": \"Augu\\nst\",\n\
             \"age\": 7              \n\
             \"toys\": null          \n\
         }                           \n\
@@ -267,9 +313,8 @@ int main()
 }";
 
     printf("DEBUG STRING:\n%s\n", source);
+    gson_parse(source);
 
-    Scanner *scanner = scanner_init(source);
-    Parser *parser = parser_init();
 //    Token token;
 //    while (token.type != TOKEN_EOF)
 //    {
@@ -285,16 +330,4 @@ int main()
 //        printf("DEBUG: type: %d, line: %d, value: %s, length: %d\n", type, line, debug_str, length);
 //    }
 
-    while (parser->current.type != TOKEN_EOF)
-    {
-        parser_advance(parser, scanner);
-        TokenType type = parser->current.type;
-        int line = parser->current.line;
-        const char *start = parser->current.start;
-        int length = parser->current.length;
-
-        char *debug_str = malloc((sizeof(char) * length) + 1);
-        strncpy(debug_str, start, length);
-        printf("DEBUG PARSER: type: %d, line: %d, value: %s, length: %d\n", type, line, debug_str, length);
-    }
 }
