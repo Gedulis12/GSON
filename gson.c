@@ -242,6 +242,18 @@ static void parser_advance(Parser *parser, Scanner *scanner)
     }
 }
 
+static bool parser_check_type(Parser *parser, TokenType type)
+{
+    return parser->current.type == type;
+}
+
+static bool parser_match_token(Parser *parser, TokenType type)
+{
+    if (!parser_check_type(parser, type)) return false;
+//    parser_advance(parser);
+    return true;
+}
+
 
 static JSONNode* gson_node_create()
 {
@@ -250,16 +262,25 @@ static JSONNode* gson_node_create()
 }
 
 // either pass parser and scanner to this function and continue recursivelly or handle the closing of objects somewhere else
-static JSONNode* gson_node_object()
+static JSONNode* gson_node_object(Parser *parser, Scanner *scanner)
 {
     JSONNode *node = gson_node_create();
     node->type = JSON_OBJECT;
+    int depth = parser->depth;
+
+    if (parser->current.type == TOKEN_RIGHT_BRACE && parser->depth == depth)
+    {
+        return node;
+    }
+
+
+
     return node;
 }
 
 JSONNode* gson_parse(char *source)
 {
-    JSONNode *node = (JSONNode*)malloc(sizeof(JSONNode));
+    JSONNode *node;
     Scanner *scanner = scanner_init(source);
     Parser *parser = parser_init();
     TokenType type;
@@ -271,9 +292,11 @@ JSONNode* gson_parse(char *source)
         switch (type)
         {
             case TOKEN_LEFT_BRACE:
-                gson_node_object();
                 parser->depth++;
-            default: return NULL;
+                //node = gson_node_object(parser, scanner);
+            case TOKEN_RIGHT_BRACE:
+                parser->depth--;
+            default: NULL;
         }
 
 
