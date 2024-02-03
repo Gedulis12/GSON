@@ -1,6 +1,8 @@
 #ifndef GSON_H_
 #define GSON_H_
 
+typedef struct parser Parser;
+
 typedef enum {
     JSON_OBJECT,
     JSON_ARRAY,
@@ -20,6 +22,8 @@ typedef struct JSONNode {
     struct JSONNode *next;
 } JSONNode;
 
-extern JSONNode* gson_parse(char *source);
+
+extern Parser* parser_init(char* source);
+extern JSONNode* gson_parse(Parser *parser, JSONNode *node);
 
 #endif

@@ -1,14 +1,18 @@
-#include <string.h>
-#include <stdlib.h>
+/*
+ * TODO:
+ *  - implement scanner_destroy()
+ *  - implement parser_destroy()
+ * */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include "gson.h"
 
 typedef enum {
     TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
     TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,
-    TOKEN_COMMA, TOKEN_COLON,
-    TOKEN_SINGLE_QUOTE, TOKEN_DOUBLE_QUOTE,
+    TOKEN_COMMA, TOKEN_COLON, TOKEN_DOUBLE_QUOTE,
     TOKEN_STRING, TOKEN_NUMBER,
     TOKEN_TRUE, TOKEN_FALSE, TOKEN_NULL_VAL,
     TOKEN_ERROR, TOKEN_EOF
@@ -27,12 +31,13 @@ typedef struct {
     int line;
 } Scanner;
 
-typedef struct {
+struct parser {
+    Scanner *scanner;
     Token previous;
     Token current;
     int depth;
     bool had_error;
-} Parser;
+};
 
 static Scanner* scanner_init(const char *source)
 {
@@ -220,17 +225,19 @@ static Token scan_token(Scanner *scanner)
     return token_error(scanner, "Unexpected Character.");
 }
 
-static Parser* parser_init()
+Parser* parser_init(char* source)
 {
     Parser *parser = (Parser*)malloc(sizeof(Parser));
+    parser->scanner = scanner_init(source);
     parser->depth = 0;
     parser->had_error = false;
     return parser;
 }
 
-static void parser_advance(Parser *parser, Scanner *scanner)
+static void parser_advance(Parser *parser)
 {
     parser->previous = parser->current;
+    Scanner *scanner = parser->scanner;
 
     for (;;)
     {
@@ -239,6 +246,7 @@ static void parser_advance(Parser *parser, Scanner *scanner)
         char *debug_str = malloc((sizeof(char) * parser->current.length) + 1);
         strncpy(debug_str, parser->current.start, parser->current.length);
         printf("Error at line %i: %s\n", parser->current.line, debug_str);
+        free(debug_str);
     }
 }
 
@@ -261,56 +269,98 @@ static JSONNode* gson_node_create()
     return node;
 }
 
-// either pass parser and scanner to this function and continue recursivelly or handle the closing of objects somewhere else
-static JSONNode* gson_node_object(Parser *parser, Scanner *scanner)
+static void gson_error(Parser *parser, int line, char *message)
+{
+    printf("%s at line %i\n", message, line);
+    parser->had_error = true;
+}
+
+static JSONNode* gson_node_object(Parser *parser, int depth, int line)
 {
     JSONNode *node = gson_node_create();
-    node->type = JSON_OBJECT;
-    int depth = parser->depth;
 
-    if (parser->current.type == TOKEN_RIGHT_BRACE && parser->depth == depth)
+    if (depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACE)
     {
-        return node;
+        gson_parse(parser, node);
+        if (parser->current.type == TOKEN_EOF)
+        {
+            if (parser->had_error == true)
+            {
+                free(node);
+                return NULL;
+            }
+
+            gson_error(parser, line, "Unclosed '{'");
+            return NULL;
+        }
+        node->type = JSON_OBJECT;
     }
-
-
-
     return node;
 }
 
-JSONNode* gson_parse(char *source)
+JSONNode* gson_parse(Parser *parser, JSONNode *node)
 {
-    JSONNode *node;
-    Scanner *scanner = scanner_init(source);
-    Parser *parser = parser_init();
+    if (node == NULL)
+    {
+         node = gson_node_create(); // root node
+    }
     TokenType type;
 
     while (parser->current.type != TOKEN_EOF)
     {
-        parser_advance(parser, scanner);
+        parser_advance(parser);
         type = parser->current.type;
         switch (type)
         {
             case TOKEN_LEFT_BRACE:
-                parser->depth++;
-                //node = gson_node_object(parser, scanner);
+                {
+                    parser->depth++;
+                    node->child = gson_node_object(parser, parser->depth, parser->current.line);
+                    node = node->child;
+                    break;
+                }
+            // TODO: handle cases when object blocks are unopened
             case TOKEN_RIGHT_BRACE:
-                parser->depth--;
-            default: NULL;
+                {
+                    if (parser->depth > 0)
+                    {
+                        return node;
+                        break;
+                    }
+                    parser->depth--;
+                    gson_error(parser, parser->current.line, "Unopened '}'");
+                    break;
+                }
+            case TOKEN_LEFT_BRACKET:
+            case TOKEN_RIGHT_BRACKET:
+            case TOKEN_COMMA:
+            case TOKEN_COLON:
+            case TOKEN_DOUBLE_QUOTE:
+            case TOKEN_STRING:
+            case TOKEN_NUMBER:
+            case TOKEN_TRUE:
+            case TOKEN_FALSE:
+            case TOKEN_NULL_VAL:
+            case TOKEN_ERROR:
+            default: break;
         }
 
+        // TODO deallocate
+        if (parser->had_error == true) return NULL;
 
         // DEBUG
         int line = parser->current.line;
         const char *start = parser->current.start;
         int length = parser->current.length;
+        int depth = parser->depth;
 
         char *debug_str = malloc((sizeof(char) * length) + 1);
+        memset(debug_str, 0, sizeof(*debug_str));
         strncpy(debug_str, start, length);
-        printf("DEBUG PARSER: type: %d, line: %d, value: %s, length: %d\n", type, line, debug_str, length);
+        printf("DEBUG PARSER: type: %d, depth: %d, line: %d, value: %s, length: %d\n", type, depth, line, debug_str, length);
     }
 
-    return NULL;
+    return node;
 }
 
 int main()
@@ -335,22 +385,11 @@ int main()
     ]                               \n\
 }";
 
-    printf("DEBUG STRING:\n%s\n", source);
-    gson_parse(source);
+    char *source2 = "{ \"a\": true }";
 
-//    Token token;
-//    while (token.type != TOKEN_EOF)
-//    {
-//        token = scan_token(scanner);
-//        TokenType type = token.type;
-//        int line = token.line;
-//        const char *start = token.start;
-//        int length = token.length;
-//
-//        char *debug_str = malloc(sizeof(char) * 256);
-//        strncpy(debug_str, start, length);
-//
-//        printf("DEBUG: type: %d, line: %d, value: %s, length: %d\n", type, line, debug_str, length);
-//    }
-
+    printf("DEBUG STRING:\n%s\n", source2);
+    Parser *parser = parser_init(source2);
+    JSONNode *node = gson_parse(parser, NULL);
+    int debug = 0;
+    return debug;
 }
