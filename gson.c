@@ -319,16 +319,15 @@ JSONNode* gson_parse(Parser *parser, JSONNode *node)
                     node = node->child;
                     break;
                 }
-            // TODO: handle cases when object blocks are unopened
             case TOKEN_RIGHT_BRACE:
                 {
-                    if (parser->depth > 0)
+                    if (parser->depth < 1)
                     {
-                        return node;
+                        gson_error(parser, parser->current.line, "Unopened '}'");
                         break;
                     }
                     parser->depth--;
-                    gson_error(parser, parser->current.line, "Unopened '}'");
+                    return node;
                     break;
                 }
             case TOKEN_LEFT_BRACKET:
@@ -387,8 +386,8 @@ int main()
 
     char *source2 = "{ \"a\": true }";
 
-    printf("DEBUG STRING:\n%s\n", source2);
-    Parser *parser = parser_init(source2);
+    printf("DEBUG STRING:\n%s\n", source);
+    Parser *parser = parser_init(source);
     JSONNode *node = gson_parse(parser, NULL);
     int debug = 0;
     return debug;
