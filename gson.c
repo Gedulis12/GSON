@@ -1,7 +1,7 @@
 /*
  * TODO:
- *  - implement scanner_destroy()
  *  - implement parser_destroy()
+ *  bug where the recursion ends preemtively due to _gson_parse function returning nothing, so the return just leads to the main(). Need to fix by changing abck to return pointer to JSONNode
  * */
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +59,8 @@ struct parser {
     bool had_error;
 };
 
+static void _gson_parse(Parser *parser, JSONNode *node, int *depth);
+
 static Scanner* scanner_init(const char *source)
 {
     Scanner *scanner = (Scanner*)malloc(sizeof(Scanner));
@@ -105,12 +107,12 @@ static bool scanner_is_at_end(Scanner *scanner)
     return *scanner->current == '\0';
 }
 
-static char peek(Scanner *scanner)
+static char scanner_peek(Scanner *scanner)
 {
     return *scanner->current;
 }
 
-static char peek_next(Scanner *scanner)
+static char scanner_peek_next(Scanner *scanner)
 {
     if (scanner_is_at_end(scanner)) return '\0';
     return scanner->current[1];
@@ -126,7 +128,7 @@ static void scanner_skip_white_space(Scanner *scanner)
 {
     for (;;)
     {
-        char c = peek(scanner);
+        char c = scanner_peek(scanner);
         switch(c)
         {
             case ' ':
@@ -167,9 +169,9 @@ static bool is_hex(char c)
 //TODO: handle the escape sequences correctly
 static Token token_string(Scanner *scanner)
 {
-    while ((peek(scanner) != '"') && !scanner_is_at_end(scanner))
+    while ((scanner_peek(scanner) != '"') && !scanner_is_at_end(scanner))
     {
-        if (peek(scanner) == '\n') scanner->line++;
+        if (scanner_peek(scanner) == '\n') scanner->line++;
         scanner_advance(scanner);
     }
 
@@ -181,12 +183,12 @@ static Token token_string(Scanner *scanner)
 
 static Token token_number(Scanner *scanner)
 {
-    while (is_digit(peek(scanner))) scanner_advance(scanner);
+    while (is_digit(scanner_peek(scanner))) scanner_advance(scanner);
 
-    if (peek(scanner) == '.' && is_digit(peek_next(scanner)))
+    if (scanner_peek(scanner) == '.' && is_digit(scanner_peek_next(scanner)))
     {
         scanner_advance(scanner);
-        while (is_digit(peek(scanner))) scanner_advance(scanner);
+        while (is_digit(scanner_peek(scanner))) scanner_advance(scanner);
     }
 
     return token_make(TOKEN_NUMBER, scanner);
@@ -199,13 +201,13 @@ static Token token_boolean(Scanner *scanner)
 
     if (strncmp(true_str, scanner->current - 1, strlen(true_str)) == 0)
     {
-        while (peek(scanner) != 'e') scanner_advance(scanner);
+        while (scanner_peek(scanner) != 'e') scanner_advance(scanner);
         scanner_advance(scanner);
         return token_make(TOKEN_TRUE, scanner);
     }
     else if (strncmp(false_str, scanner->current - 1, strlen(false_str)) == 0)
     {
-        while (peek(scanner) != 'e') scanner_advance(scanner);
+        while (scanner_peek(scanner) != 'e') scanner_advance(scanner);
         scanner_advance(scanner);
         return token_make(TOKEN_FALSE, scanner);
     }
@@ -219,7 +221,7 @@ static Token token_null(Scanner *scanner)
     char debugstr[120];
     if (strncmp(null_str, scanner->current - 1, strlen(null_str)) == 0)
     {
-        while (peek(scanner) != 'l') scanner_advance(scanner);
+        while (scanner_peek(scanner) != 'l') scanner_advance(scanner);
         scanner_advance(scanner);
         scanner_advance(scanner);
         return token_make(TOKEN_NULL_VAL, scanner);
@@ -271,8 +273,6 @@ Parser* parser_init(char* source)
     return parser;
 }
 
-
-
 static void parser_advance(Parser *parser)
 {
     parser->previous = parser->current;
@@ -314,53 +314,55 @@ static void gson_error(Parser *parser, int line, char *message)
     parser->had_error = true;
 }
 
-static JSONNode* gson_node_object(Parser *parser, int depth, int line)
+static void gson_node_object(Parser *parser, JSONNode *node, int *depth, int line)
 {
-    JSONNode *node = gson_node_create();
+    JSONNode *child = gson_node_create();
+    child->type = JSON_OBJECT;
+    node->child = child;
+    child->parent = node;
+    node = child;
 
-    if (depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACE)
+    if (*depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACE)
     {
-        gson_parse(parser, node, depth);
+        _gson_parse(parser, node, depth);
         if (parser->current.type == TOKEN_EOF)
         {
             if (parser->had_error == true)
             {
-                free(node);
-                return NULL;
+                return;
             }
 
             gson_error(parser, line, "Unclosed '{'");
-            return NULL;
+            return;
         }
-        node->type = JSON_OBJECT;
     }
-    return node;
 }
 
-static JSONNode* gson_node_array(Parser *parser, int depth, int line)
+static void gson_node_array(Parser *parser, JSONNode *node, int *depth, int line)
 {
-    JSONNode *node = gson_node_create();
+    JSONNode *child = gson_node_create();
+    child->type = JSON_ARRAY;
+    node->child = child;
+    child->parent = node;
+    node = child;
 
-    if (depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACKET)
+    if (*depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACKET)
     {
-        gson_parse(parser, node, depth);
+        _gson_parse(parser, node, depth);
         if (parser->current.type == TOKEN_EOF)
         {
             if (parser->had_error == true)
             {
-                free(node);
-                return NULL;
+                return;
             }
 
             gson_error(parser, line, "Unclosed '['");
-            return NULL;
+            return;
         }
-        node->type = JSON_ARRAY;
     }
-    return node;
 }
 
-JSONNode* gson_parse(Parser *parser, JSONNode *node, int depth)
+static void _gson_parse(Parser *parser, JSONNode *node, int *depth)
 {
     if (node == NULL)
     {
@@ -377,44 +379,52 @@ JSONNode* gson_parse(Parser *parser, JSONNode *node, int depth)
             case TOKEN_LEFT_BRACE:
                 {
                     parser->depth++;
-                    JSONNode *child = gson_node_object(parser, ++depth, parser->current.line);
-                    if (parser->current.type == TOKEN_EOF) break;
-                    node->child = child;
-                    child->parent = node;
-                    node = child;
+                    *depth++;
+                    gson_node_object(parser, node, depth, parser->current.line);
                     break;
                 }
             case TOKEN_RIGHT_BRACE:
                 {
-                    if (parser->depth < depth-- || node->type != JSON_OBJECT)
+                    if (parser->depth < *depth || node->type != JSON_OBJECT)
                     {
+                        *depth--;
                         gson_error(parser, parser->current.line, "Unopened '}'");
                         break;
                     }
+                    *depth--;
                     parser->depth--;
-                    return node;
-                    break;
+                    parser_advance(parser);
+                    if (parser->current.type == TOKEN_COMMA)
+                    {
+                        return;
+                    }
+                    node = node->parent;
+                    return;
                 }
             case TOKEN_LEFT_BRACKET:
                 {
                     parser->depth++;
-                    JSONNode *child = gson_node_array(parser, ++depth, parser->current.line);
-                    if (parser->current.type == TOKEN_EOF) break;
-                    node->child = child;
-                    child->parent = node;
-                    node = child;
+                    *depth++;
+                    gson_node_array(parser, node, depth, parser->current.line);
                     break;
                 }
             case TOKEN_RIGHT_BRACKET:
                 {
-                    if (parser->depth < depth-- || node->type != JSON_ARRAY)
+                    if (parser->depth < *depth || node->type != JSON_ARRAY)
                     {
+                        *depth--;
                         gson_error(parser, parser->current.line, "Unopened ']'");
                         break;
                     }
+                    *depth--;
                     parser->depth--;
-                    return node;
-                    break;
+                    parser_advance(parser);
+                    if (parser->current.type == TOKEN_COMMA)
+                    {
+                        return;
+                    }
+                    node = node->parent;
+                    return;
                 }
             case TOKEN_COMMA:
             case TOKEN_COLON:
@@ -429,7 +439,7 @@ JSONNode* gson_parse(Parser *parser, JSONNode *node, int depth)
         }
 
         // TODO deallocate
-        if (parser->had_error == true) return NULL;
+        if (parser->had_error == true) return;
 
         // DEBUG
         int line = parser->current.line;
@@ -442,8 +452,6 @@ JSONNode* gson_parse(Parser *parser, JSONNode *node, int depth)
         strncpy(debug_str, start, length);
         printf("DEBUG PARSER: type: %d, depth: %d, line: %d, value: %s, length: %d\n", type, depth, line, debug_str, length);
     }
-
-    return node;
 }
 
 int main()
@@ -468,11 +476,23 @@ int main()
     ]                               \n\
 }";
 
-    char *source2 = "{ \"a\": [true, false ]}";
+    char *source2 = "{ \n\
+    \"a\":              \n\
+    [                   \n\
+        {               \n\
+            \"b\": 1    \n\
+        },              \n\
+        {               \n\
+            \"b\": 2    \n\
+        }               \n\
+    ]                   \n\
+}";
 
-    printf("DEBUG STRING:\n%s\n", source);
-    Parser *parser = parser_init(source);
-    JSONNode *node = gson_parse(parser, NULL, 0);
-    int debug = 0;
-    return debug;
+    printf("DEBUG STRING:\n%s\n", source2);
+    Parser *parser = parser_init(source2);
+    JSONNode *node = gson_node_create();
+    int *depth;
+    _gson_parse(parser, node, depth);
+
+    return 0;
 }
