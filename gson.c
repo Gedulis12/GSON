@@ -8,10 +8,11 @@
 #include <stdbool.h>
 #include "gson.h"
 
-#define DEBUG
+//#define DEBUG
 
 typedef enum {
     JSON_ROOT,
+    JSON_TEMP_STUB,
     JSON_OBJECT,
     JSON_ARRAY,
     JSON_STRING,
@@ -416,9 +417,9 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
 {
     if (curr->type != JSON_STRING && parser->next_string_key == true)
     {
-        curr = get_current_node(parser, curr, JSON_STRING);
+        curr = get_current_node(parser, curr, JSON_TEMP_STUB);
         curr->key = malloc((sizeof(char) * parser->current.length) + 1);
-        strncat(curr->key, parser->current.start, parser->current.length);
+        strncpy(curr->key, parser->current.start, parser->current.length);
         printf("DEBUG key: %s\n", curr->key);
         parser->next_string_key = false;
 
@@ -429,10 +430,10 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         }
         return curr;
     }
-    else if (curr->type == JSON_STRING && parser->next_string_key == false)
+    else if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
     {
         curr->str_val = malloc((sizeof(char) * parser->current.length) + 1);
-        strncat(curr->str_val, parser->current.start, parser->current.length);
+        strncpy(curr->str_val, parser->current.start, parser->current.length);
         printf("DEBUG value: %s\n", curr->str_val);
         parser->next_string_key = true;
         return curr;
@@ -441,7 +442,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     {
         curr = get_current_node(parser, curr, JSON_STRING);
         curr->str_val = malloc((sizeof(char) * parser->current.length) + 1);
-        strncat(curr->str_val, parser->current.start, parser->current.length);
+        strncpy(curr->str_val, parser->current.start, parser->current.length);
         printf("DEBUG value: %s\n", curr->str_val);
         parser->next_string_key = false;
         return curr;
@@ -452,12 +453,93 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
 
 JSONNode* gson_number(Parser *parser, JSONNode *curr)
 {
-    curr->type = JSON_NUMBER;
+    if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
+    {
+        curr->type = JSON_NUMBER;
+    }
+    else if (curr->type == JSON_ARRAY && parser->next_string_key == false)
+    {
+        curr = get_current_node(parser, curr, JSON_NUMBER);
+        parser->next_string_key = false;
+    }
+    else
+    {
+        gson_error(parser, "Error");
+        return NULL;
+    }
     char *num_str_val = malloc((sizeof(char) * parser->current.length) + 1);
     strncat(num_str_val, parser->current.start, parser->current.length);
     float num_val = strtof(num_str_val, NULL);
     curr->num_val = num_val;
     printf("DEBUG value: %f\n", curr->num_val);
+    return curr;
+}
+
+JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
+{
+    if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
+    {
+        curr->type = JSON_TRUE_VAL;
+    }
+    else if (curr->type == JSON_ARRAY && parser->next_string_key == false)
+    {
+        curr = get_current_node(parser, curr, JSON_TRUE_VAL);
+        parser->next_string_key = false;
+    }
+    else
+    {
+        gson_error(parser, "Error");
+        return NULL;
+    }
+    char *val = "true";
+    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    strcpy(curr->str_val, val);
+    printf("DEBUG value: %s\n", curr->str_val);
+    return curr;
+}
+JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
+{
+    if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
+    {
+        curr->type = JSON_FALSE_VAL;
+    }
+    else if (curr->type == JSON_ARRAY && parser->next_string_key == false)
+    {
+        curr = get_current_node(parser, curr, JSON_FALSE_VAL);
+        parser->next_string_key = false;
+    }
+    else
+    {
+        gson_error(parser, "Error");
+        return NULL;
+    }
+    char *val = "false";
+    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    strcpy(curr->str_val, val);
+    printf("DEBUG value: %s\n", curr->str_val);
+    return curr;
+}
+
+JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
+{
+    if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
+    {
+        curr->type = JSON_NULL_VAL;
+    }
+    else if (curr->type == JSON_ARRAY && parser->next_string_key == false)
+    {
+        curr = get_current_node(parser, curr, JSON_NULL_VAL);
+        parser->next_string_key = false;
+    }
+    else
+    {
+        gson_error(parser, "Error");
+        return NULL;
+    }
+    char *val = "null";
+    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    strcpy(curr->str_val, val);
+    printf("DEBUG value: %s\n", curr->str_val);
     return curr;
 }
 
@@ -537,7 +619,7 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
                 }
             case TOKEN_COMMA:
                 parser->has_next = true;
-                if (curr->parent->type == JSON_ARRAY)
+                if (curr->type == JSON_ARRAY)
                 {
                     parser->next_string_key = false;
                 }
@@ -562,12 +644,37 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
                     break;
                 }
             case TOKEN_NUMBER:
+                if (curr->type == JSON_ARRAY)
+                {
+                    gson_number(parser, curr);
+                    break;
+                }
                 gson_number(parser, keyptr);
                 break;
             case TOKEN_TRUE:
+                if (curr->type == JSON_ARRAY)
+                {
+                    gson_true_val(parser, curr);
+                    break;
+                }
+                gson_true_val(parser, keyptr);
+                break;
             case TOKEN_FALSE:
+                if (curr->type == JSON_ARRAY)
+                {
+                    gson_false_val(parser, curr);
+                    break;
+                }
+                gson_false_val(parser, keyptr);
+                break;
             case TOKEN_NULL_VAL:
-            case TOKEN_ERROR:
+                if (curr->type == JSON_ARRAY)
+                {
+                    gson_null_val(parser, curr);
+                    break;
+                }
+                gson_null_val(parser, keyptr);
+                break;
             default: break;
         }
 
@@ -589,14 +696,16 @@ int main()
     [                               \n\
         {                           \n\
             \"name\": \"Sissy\",    \n\
-            \"age\": 5,              \n\
+            \"age\": 5,             \n\
             \"toys\": false         \n\
         },                          \n\
         {                           \n\
-            \"name\": \"Augu\\nst\",\n\
-            \"age\": 7,              \n\
+            \"name\": \"August\",   \n\
+            \"age\": 7,             \n\
             \"toys\": null          \n\
-        }                           \n\
+        },                          \n\
+        5,                          \n\
+        \"test_abc\"                \n\
     ]                               \n\
 }";
 
