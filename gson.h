@@ -6,5 +6,6 @@ typedef struct JSONNode JSONNode;
 
 extern Parser* parser_init(char* source);
 extern void parser_destroy(Parser *parser);
+extern JSONNode* gson_parse(Parser *parser, JSONNode *node);
 
 #endif

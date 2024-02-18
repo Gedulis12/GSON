@@ -1,11 +1,17 @@
 /*
  * TODO:
- *  - implement parser_destroy()
+ * -- To complete the parser:
+ * Fix memory leaks (implement deletion of parsed nodes)
+ * Handle special characters for strings (\" \\ \/ \b \f \n \r \t \u (0x01 0x02 0x03 0x04))
+ * Implement check for UTF-8 characters
+ * Test the correctness and completeness of the final tree structure (print the tree)
+ * Write a bunch of tests
  * */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 #include "gson.h"
 
 //#define DEBUG
@@ -36,8 +42,10 @@ typedef struct JSONNode {
 typedef enum {
     TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
     TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,
-    TOKEN_COMMA, TOKEN_COLON,
-    TOKEN_STRING, TOKEN_NUMBER,
+    TOKEN_COMMA,
+    TOKEN_COLON,
+    TOKEN_STRING,
+    TOKEN_NUMBER,
     TOKEN_TRUE, TOKEN_FALSE, TOKEN_NULL_VAL,
     TOKEN_ERROR, TOKEN_EOF
 } TokenType;
@@ -64,8 +72,6 @@ struct parser {
     bool has_next; // helper context to determine whether the next node is a child or a sibling of the current node
     bool next_string_key; // helper context to determine whether the next JSON_STRING token is a key or a value
 };
-
-static JSONNode* _gson_parse(Parser *parser, JSONNode *node);
 
 static Scanner* scanner_init(const char *source)
 {
@@ -218,6 +224,12 @@ static Token token_boolean(Scanner *scanner)
         return token_make(TOKEN_FALSE, scanner);
     }
 
+#ifdef DEBUG
+    char debug_str[10];
+    debug_str[9] = '\0';
+    strncpy(debug_str, scanner->current, 9);
+    printf("DEBUG: line: %i, %s\n",scanner->line, debug_str);
+#endif
     return token_error(scanner, "Only 'true' and 'false' are valid boolean keywords");
 }
 
@@ -233,8 +245,10 @@ static Token token_null(Scanner *scanner)
         return token_make(TOKEN_NULL_VAL, scanner);
     }
 
+#ifdef DEBUG
     strncpy(debugstr, scanner->start, scanner->current - scanner->start);
     printf("DEBUG: %s\n", debugstr);
+#endif
 
     return token_error(scanner, "Only 'null' is a valid keyword for the null value");
 }
@@ -280,6 +294,12 @@ Parser* parser_init(char* source)
     return parser;
 }
 
+void parser_destroy(Parser *parser)
+{
+    scanner_destroy(parser->scanner);
+    free(parser);
+}
+
 static void parser_advance(Parser *parser)
 {
     parser->previous = parser->current;
@@ -295,19 +315,6 @@ static void parser_advance(Parser *parser)
         free(debug_str);
     }
 }
-
-static bool parser_check_type(Parser *parser, TokenType type)
-{
-    return parser->current.type == type;
-}
-
-static bool parser_match_token(Parser *parser, TokenType type)
-{
-    if (!parser_check_type(parser, type)) return false;
-//    parser_advance(parser);
-    return true;
-}
-
 
 static JSONNode* gson_node_create()
 {
@@ -379,7 +386,7 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
 
     if (curr->depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACE)
     {
-        _gson_parse(parser, curr);
+        gson_parse(parser, curr);
         if (parser->current.type == TOKEN_EOF)
         {
             if (parser->had_error == true)
@@ -399,7 +406,7 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
 
     if (curr->depth == parser->depth && parser->current.type != TOKEN_RIGHT_BRACKET)
     {
-        _gson_parse(parser, curr);
+        gson_parse(parser, curr);
         if (parser->current.type == TOKEN_EOF)
         {
             if (parser->had_error == true)
@@ -418,9 +425,12 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     if (curr->type != JSON_STRING && parser->next_string_key == true)
     {
         curr = get_current_node(parser, curr, JSON_TEMP_STUB);
-        curr->key = malloc((sizeof(char) * parser->current.length) + 1);
+        curr->key = malloc(sizeof(char) * (parser->current.length + 1));
+        memset(curr->key, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->key, parser->current.start, parser->current.length);
+#ifdef DEBUG
         printf("DEBUG key: %s\n", curr->key);
+#endif
         parser->next_string_key = false;
 
         if (scanner_peek(parser->scanner) != ':')
@@ -432,9 +442,12 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     }
     else if (curr->type == JSON_TEMP_STUB && parser->next_string_key == false)
     {
-        curr->str_val = malloc((sizeof(char) * parser->current.length) + 1);
+        curr->str_val = malloc(sizeof(char) * (parser->current.length + 1));
+        memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
+#ifdef DEBUG
         printf("DEBUG value: %s\n", curr->str_val);
+#endif
         parser->next_string_key = true;
         return curr;
     }
@@ -442,8 +455,11 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     {
         curr = get_current_node(parser, curr, JSON_STRING);
         curr->str_val = malloc((sizeof(char) * parser->current.length) + 1);
+        memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
+#ifdef DEBUG
         printf("DEBUG value: %s\n", curr->str_val);
+#endif
         parser->next_string_key = false;
         return curr;
     }
@@ -468,10 +484,13 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
         return NULL;
     }
     char *num_str_val = malloc((sizeof(char) * parser->current.length) + 1);
+    memset(num_str_val, 0, sizeof(char) * (parser->current.length + 1));
     strncat(num_str_val, parser->current.start, parser->current.length);
     float num_val = strtof(num_str_val, NULL);
     curr->num_val = num_val;
+#ifdef DEBUG
     printf("DEBUG value: %f\n", curr->num_val);
+#endif
     return curr;
 }
 
@@ -494,7 +513,9 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
     char *val = "true";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
+#ifdef DEBUG
     printf("DEBUG value: %s\n", curr->str_val);
+#endif
     return curr;
 }
 JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
@@ -516,7 +537,9 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
     char *val = "false";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
+#ifdef DEBUG
     printf("DEBUG value: %s\n", curr->str_val);
+#endif
     return curr;
 }
 
@@ -539,11 +562,13 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
     char *val = "null";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
+#ifdef DEBUG
     printf("DEBUG value: %s\n", curr->str_val);
+#endif
     return curr;
 }
 
-static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
+JSONNode* gson_parse(Parser *parser, JSONNode *curr)
 {
     if (curr == NULL)
     {
@@ -568,8 +593,8 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
         int depth = parser->depth;
         int node_depth = curr->depth;
 
-        char *debug_str = malloc((sizeof(char) * length) + 1);
-        memset(debug_str, 0, sizeof(*debug_str));
+        char *debug_str = malloc(sizeof(char) * (length + 1));
+        memset(debug_str, 0, sizeof(char) * (length) + 1);
         strncpy(debug_str, start, length);
         printf("DEBUG PARSER: type: %d, depth: %d, node depth: %d line: %d, value: %s, length: %d\n", type, depth, node_depth, line, debug_str, length);
         /* ************************************************************* */
@@ -636,11 +661,14 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
                     if (parser->next_string_key)
                     {
                         keyptr = gson_string(parser, curr);
+                        break;
                     }
-                    else
+                    else if (curr->type == JSON_ARRAY)
                     {
-                        gson_string(parser, keyptr);
+                        gson_string(parser, curr);
+                        break;
                     }
+                    gson_string(parser, keyptr);
                     break;
                 }
             case TOKEN_NUMBER:
@@ -685,46 +713,63 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
     return curr;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    char *source = "{               \n\
-    \"name\": \"Matt\",             \n\
-    \"gender\": \"male\",           \n\
-    \"age\": 30,                    \n\
-    \"has_kids\": true,             \n\
-    \"kids\":                       \n\
-    [                               \n\
-        {                           \n\
-            \"name\": \"Sissy\",    \n\
-            \"age\": 5,             \n\
-            \"toys\": false         \n\
-        },                          \n\
-        {                           \n\
-            \"name\": \"August\",   \n\
-            \"age\": 7,             \n\
-            \"toys\": null          \n\
-        },                          \n\
-        5,                          \n\
-        \"test_abc\"                \n\
-    ]                               \n\
-}";
+    if (argc != 2)
+    {
+        printf("Usage: ./gson <input.json>");
+        return 1;
+    }
+
+    char *source = NULL;
+    FILE *fp = fopen(argv[1], "r");
+    if (fp != NULL)
+    {
+        if (fseek(fp, 0L, SEEK_END) == 0)
+        {
+            long bufsize = ftell(fp);
+            if (bufsize == -1)
+            {
+                return 1;
+            }
+
+            source = malloc(sizeof(char) * (bufsize + 1));
+            if (source == NULL)
+            {
+                perror("Memory allocation failed");
+                return 1;
+            }
+            if (fseek(fp, 0L, SEEK_SET) != 0)
+            {
+                return 1;
+            }
+
+            size_t new_len = fread(source, sizeof(char), bufsize, fp);
+            if (ferror(fp) != 0)
+            {
+                fputs("Error reading file", stderr);
+            }
+            else
+            {
+                source[new_len++] = '\0';
+            }
+        }
+        fclose(fp);
+    }
 
 
-    char *source2 = "{  \n\
-    \"a\":              \n\
-    [                   \n\
-        {               \n\
-            \"a\": \"abc\"    \n\
-        },              \n\
-        {               \n\
-            \"b\": 2    \n\
-        }               \n\
-    ]                   \n\
-}";
-
-    printf("DEBUG STRING:\n%s\n", source);
     Parser *parser = parser_init(source);
-    JSONNode *node = _gson_parse(parser, NULL);
+    clock_t t;
+    t = clock();
+    JSONNode *node = gson_parse(parser, NULL);
+    t = clock() - t; 
+    double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+    if (node->type == JSON_ROOT)
+    {
+            printf("parsing took %f seconds to execute \n", time_taken);
+    }
+    parser_destroy(parser);
+    free(source);
 
     return 0;
 }
