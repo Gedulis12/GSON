@@ -1,77 +1,12 @@
-/*
- * TODO:
- * -- To complete the parser:
- * Fix memory leaks (implement deletion of parsed nodes)
- * Handle special characters for strings (\" \\ \/ \b \f \n \r \t \u (0x01 0x02 0x03 0x04))
- * Implement check for UTF-8 characters
- * Test the correctness and completeness of the final tree structure (print the tree)
- * Write a bunch of tests
- * */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
 #include "gson.h"
+#include "debug.h"
 
 //#define DEBUG
-
-typedef enum {
-    JSON_ROOT,
-    JSON_TEMP_STUB,
-    JSON_OBJECT,
-    JSON_ARRAY,
-    JSON_STRING,
-    JSON_NUMBER,
-    JSON_TRUE_VAL,
-    JSON_FALSE_VAL,
-    JSON_NULL_VAL,
-} JSONType;
-
-typedef struct JSONNode {
-    JSONType type;
-    int depth;
-    char *key;
-    char *str_val;
-    float num_val;
-    struct JSONNode *child;
-    struct JSONNode *parent;
-    struct JSONNode *next;
-} JSONNode;
-
-typedef enum {
-    TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
-    TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,
-    TOKEN_COMMA,
-    TOKEN_COLON,
-    TOKEN_STRING,
-    TOKEN_NUMBER,
-    TOKEN_TRUE, TOKEN_FALSE, TOKEN_NULL_VAL,
-    TOKEN_ERROR, TOKEN_EOF
-} TokenType;
-
-typedef struct {
-    TokenType type;
-    const char* start;
-    int length;
-    int line;
-} Token;
-
-typedef struct {
-    const char *start;
-    const char *current;
-    int line;
-} Scanner;
-
-struct parser {
-    Scanner *scanner;
-    Token previous;
-    Token current;
-    int depth;
-    bool had_error;
-    bool has_next; // helper context to determine whether the next node is a child or a sibling of the current node
-    bool next_string_key; // helper context to determine whether the next JSON_STRING token is a key or a value
-};
 
 static Scanner* scanner_init(const char *source)
 {
@@ -713,6 +648,7 @@ JSONNode* gson_parse(Parser *parser, JSONNode *curr)
     return curr;
 }
 
+
 int main(int argc, char* argv[])
 {
     if (argc != 2)
@@ -768,6 +704,7 @@ int main(int argc, char* argv[])
     {
             printf("parsing took %f seconds to execute \n", time_taken);
     }
+    print_gson_tree(node);
     parser_destroy(parser);
     free(source);
 

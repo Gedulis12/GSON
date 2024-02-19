@@ -1,6 +1,8 @@
 #ifndef GSON_H_
 #define GSON_H_
 
+#include "gson_int.h"
+
 typedef struct parser Parser;
 typedef struct JSONNode JSONNode;
 
