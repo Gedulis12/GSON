@@ -5,7 +5,7 @@
 #include "debug.h"
 
 
-void print_gson_tree(JSONNode *node)
+void gson_debug_print_tree(JSONNode *node)
 {
     if (node == NULL)
     {
@@ -72,6 +72,19 @@ void print_gson_tree(JSONNode *node)
         printf("%s\n", type_val);
     }
     free(type_val);
-    print_gson_tree(node->next);
-    print_gson_tree(node->child);
+    gson_debug_print_tree(node->next);
+    gson_debug_print_tree(node->child);
+}
+
+void gson_debug_print_key(JSONNode *node)
+{
+    printf("DEBUG Key: %s\n", node->key);
+}
+void gson_debug_print_str_val(JSONNode *node)
+{
+    printf("DEBUG Value: %s\n", node->str_val);
+}
+void gson_debug_print_num_val(JSONNode *node)
+{
+    printf("DEBUG Value: %f\n", node->num_val);
 }

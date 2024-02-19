@@ -159,12 +159,6 @@ static Token token_boolean(Scanner *scanner)
         return token_make(TOKEN_FALSE, scanner);
     }
 
-#ifdef DEBUG
-    char debug_str[10];
-    debug_str[9] = '\0';
-    strncpy(debug_str, scanner->current, 9);
-    printf("DEBUG: line: %i, %s\n",scanner->line, debug_str);
-#endif
     return token_error(scanner, "Only 'true' and 'false' are valid boolean keywords");
 }
 
@@ -179,11 +173,6 @@ static Token token_null(Scanner *scanner)
         scanner_advance(scanner);
         return token_make(TOKEN_NULL_VAL, scanner);
     }
-
-#ifdef DEBUG
-    strncpy(debugstr, scanner->start, scanner->current - scanner->start);
-    printf("DEBUG: %s\n", debugstr);
-#endif
 
     return token_error(scanner, "Only 'null' is a valid keyword for the null value");
 }
@@ -364,7 +353,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         memset(curr->key, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->key, parser->current.start, parser->current.length);
 #ifdef DEBUG
-        printf("DEBUG key: %s\n", curr->key);
+        gson_debug_print_key(curr);
 #endif
         parser->next_string_key = false;
 
@@ -381,7 +370,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
 #ifdef DEBUG
-        printf("DEBUG value: %s\n", curr->str_val);
+        gson_debug_print_str_val(curr);
 #endif
         parser->next_string_key = true;
         return curr;
@@ -393,7 +382,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
 #ifdef DEBUG
-        printf("DEBUG value: %s\n", curr->str_val);
+        gson_debug_print_str_val(curr);
 #endif
         parser->next_string_key = false;
         return curr;
@@ -424,7 +413,7 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     float num_val = strtof(num_str_val, NULL);
     curr->num_val = num_val;
 #ifdef DEBUG
-    printf("DEBUG value: %f\n", curr->num_val);
+    gson_debug_print_num_val(curr);
 #endif
     return curr;
 }
@@ -449,7 +438,7 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
 #ifdef DEBUG
-    printf("DEBUG value: %s\n", curr->str_val);
+    gson_debug_print_str_val(curr);
 #endif
     return curr;
 }
@@ -473,7 +462,7 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
 #ifdef DEBUG
-    printf("DEBUG value: %s\n", curr->str_val);
+    gson_debug_print_str_val(curr);
 #endif
     return curr;
 }
@@ -498,7 +487,7 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
     strcpy(curr->str_val, val);
 #ifdef DEBUG
-    printf("DEBUG value: %s\n", curr->str_val);
+    gson_debug_print_str_val(curr);
 #endif
     return curr;
 }
@@ -704,7 +693,7 @@ int main(int argc, char* argv[])
     {
             printf("parsing took %f seconds to execute \n", time_taken);
     }
-    print_gson_tree(node);
+    gson_debug_print_tree(node);
     parser_destroy(parser);
     free(source);
 
