@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gcc -g gson.c debug.c -o gson
+gcc -DDEBUG -g gson.c debug.c -o gson
