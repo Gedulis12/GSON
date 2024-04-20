@@ -1,7 +1,7 @@
 #ifndef GSON_DEBUG_H
 #define GSON_DEBUG_H
 
-#include "gson.h"
+#include "gson_int.h"
 #include "time.h"
 
 #define PARSING_TIMER(parser) \

@@ -1,7 +1,8 @@
 #ifndef GSON_H_
 #define GSON_H_
 
-#include "gson_int.h"
+typedef void Parser;
+typedef void JSONNode;
 
 extern Parser* parser_init(char* source);
 extern void parser_destroy(Parser *parser);
