@@ -5,7 +5,7 @@
 #include "debug.h"
 
 
-void gson_debug_print_tree(JSONNode *node)
+void gson_debug_print_tree(JSONNode *node, int depth)
 {
     if (node == NULL)
     {
@@ -63,17 +63,13 @@ void gson_debug_print_tree(JSONNode *node)
             break;
         default: break;
     }
-    if (node->next != NULL)
-    {
-        printf("%s -> ", type_val);
-    }
-    else
-    {
-        printf("%s\n", type_val);
-    }
+    printf("%*s", depth * 4, "");
+    printf("|__ %s\n", type_val);
+
     free(type_val);
-    gson_debug_print_tree(node->next);
-    gson_debug_print_tree(node->child);
+
+    gson_debug_print_tree(node->child, depth + 1);
+    gson_debug_print_tree(node->next, depth);
 }
 
 void gson_debug_print_key(JSONNode *node)
@@ -87,4 +83,21 @@ void gson_debug_print_str_val(JSONNode *node)
 void gson_debug_print_num_val(JSONNode *node)
 {
     printf("DEBUG Value: %f\n", node->num_val);
+}
+
+void gson_debug_general(Parser *parser, JSONNode *node)
+{
+        int line = parser->current.line;
+        const char *start = parser->current.start;
+        int length = parser->current.length;
+        int parser_depth = parser->depth;
+        int node_depth = node->depth;
+        int node_type = node->type;
+        TokenType type = parser->current.type;
+        TokenType prev_type = parser->previous.type;
+
+        char *debug_str = malloc(sizeof(char) * (length + 1));
+        memset(debug_str, 0, sizeof(char) * (length) + 1);
+        strncpy(debug_str, start, length);
+        printf("DEBUG PARSER: current type: %d, previous type: %d parser depth: %d, node depth: %d, node type: %d line: %d, value: %s, length: %d\n", type, prev_type, parser_depth, node_depth, node_type, line, debug_str, length);
 }
