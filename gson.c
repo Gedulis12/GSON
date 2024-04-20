@@ -304,22 +304,28 @@ static JSONNode* get_current_node(Parser *parser, JSONNode *curr, JSONType type)
 
 static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
 {
-    JSONNode *new = gson_node_create();
-
-    new->type = JSON_OBJECT;
-    new->depth = parser->depth;
-    if (parser->has_next)
+    if (curr->type == JSON_TEMP_STUB)
     {
-        new->parent = curr->parent;
-        curr->next = new;
-        parser->has_next = false;
+        curr->type = JSON_OBJECT;
     }
     else
     {
-        new->parent = curr;
-        curr->child = new;
+        JSONNode *new = gson_node_create();
+        new->type = JSON_OBJECT;
+        new->depth = parser->depth;
+        if (parser->has_next)
+        {
+            new->parent = curr->parent;
+            curr->next = new;
+            parser->has_next = false;
+        }
+        else
+        {
+            new->parent = curr;
+            curr->child = new;
+        }
+        curr = new;
     }
-    curr = new;
 
     gson_parse(parser, curr);
 
@@ -338,7 +344,7 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
         return curr;
     }
 
-    if ((parser->current.type == TOKEN_RIGHT_BRACE && parser->depth != curr->depth) || parser->current.type == TOKEN_EOF)
+    if (parser->current.type == TOKEN_EOF)
     {
         gson_error(parser, "3unclosed '{'");
         return curr;
@@ -356,23 +362,30 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
 
 static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
 {
-    JSONNode *new = gson_node_create();
-
-    new->type = JSON_ARRAY;
-    new->depth = parser->depth;
-    new->parent = curr;
-    if (parser->has_next)
+    if (curr->type == JSON_TEMP_STUB)
     {
-        new->parent = curr->parent;
-        curr->next = new;
-        parser->has_next = false;
+        curr->type = JSON_ARRAY;
     }
     else
     {
+        JSONNode *new = gson_node_create();
+
+        new->type = JSON_ARRAY;
+        new->depth = parser->depth;
         new->parent = curr;
-        curr->child = new;
+        if (parser->has_next)
+        {
+            new->parent = curr->parent;
+            curr->next = new;
+            parser->has_next = false;
+        }
+        else
+        {
+            new->parent = curr;
+            curr->child = new;
+        }
+        curr = new;
     }
-    curr = new;
 
     gson_parse(parser, curr);
 
@@ -391,7 +404,7 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
         return curr;
     }
 
-    if ((parser->current.type == TOKEN_RIGHT_BRACKET && parser->depth != curr->depth) || parser->current.type == TOKEN_EOF)
+    if (parser->current.type == TOKEN_EOF)
     {
         gson_error(parser, "6unclosed '['");
         return curr;
@@ -413,7 +426,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     {
         JSONNode *new = gson_node_create();
 
-        new->type = JSON_STRING;
+        new->type = JSON_TEMP_STUB;
         new->depth = parser->depth;
         new->parent = curr;
         if (parser->has_next)
@@ -443,8 +456,9 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         }
         return curr;
     }
-    else if (parser->next_string_key == false && curr->type == JSON_STRING && !parser->has_next)
+    else if (parser->next_string_key == false && curr->type == JSON_TEMP_STUB && !parser->has_next)
     {
+        curr->type = JSON_STRING;
         curr->str_val = malloc(sizeof(char) * (parser->current.length + 1));
         memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
@@ -494,10 +508,25 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     {
         curr->type = JSON_NUMBER;
     }
-    else if (curr->type == JSON_ARRAY && parser->next_string_key == false)
+    else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
-        curr = get_current_node(parser, curr, JSON_NUMBER);
-        parser->next_string_key = false;
+        JSONNode *new = gson_node_create();
+
+        new->type = JSON_NUMBER;
+        new->depth = parser->depth;
+        new->parent = curr;
+        if (parser->has_next)
+        {
+            new->parent = curr->parent;
+            curr->next = new;
+            parser->has_next = false;
+        }
+        else
+        {
+            new->parent = curr;
+            curr->child = new;
+        }
+        curr = new;
     }
     else
     {
@@ -730,12 +759,11 @@ gson_debug_general(parser, curr);
                     break;
                 }
             case TOKEN_NUMBER:
-          //      if (curr->type == JSON_ARRAY)
-          //      {
-          //          gson_number(parser, curr);
-          //          break;
-          //      }
-          //      gson_number(parser, keyptr);
+                if (curr->type == JSON_ROOT)
+                {
+                    gson_error(parser, "20unopened");
+                }
+                curr = gson_number(parser, curr);
                 break;
             case TOKEN_TRUE:
           //      if (curr->type == JSON_ARRAY)
@@ -763,6 +791,7 @@ gson_debug_general(parser, curr);
                 break;
             default: break;
         }
+        if (parser->had_error) return NULL;
     }
     return curr;
 }
@@ -823,11 +852,10 @@ int main(int argc, char* argv[])
     }
     t = clock() - t; 
     double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
-    if (node->type == JSON_ROOT)
-    {
-            printf("parsing took %f seconds to execute \n", time_taken);
-    }
+    printf("parsing took %f seconds to execute \n", time_taken);
+#ifdef DEBUG
     gson_debug_print_tree(node, 0);
+#endif
     parser_destroy(parser);
     free(source);
 
