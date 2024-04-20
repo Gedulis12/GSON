@@ -1,5 +1,5 @@
-#ifndef GSON_INT_H
-#define GSON_INT_H
+#ifndef GSON_INT_H_
+#define GSON_INT_H_
 
 #include <stdbool.h>
 
@@ -15,15 +15,15 @@ typedef enum {
     JSON_NULL_VAL,
 } JSONType;
 
-typedef struct JSONNode {
+typedef struct jsonnode {
     JSONType type;
     int depth;
     char *key;
     char *str_val;
     float num_val;
-    struct JSONNode *child;
-    struct JSONNode *parent;
-    struct JSONNode *next;
+    struct jsonnode *child;
+    struct jsonnode *parent;
+    struct jsonnode *next;
 } JSONNode;
 
 typedef enum {
@@ -59,4 +59,9 @@ typedef struct parser {
     bool has_next; // helper context to determine whether the next node is a child or a sibling of the current node
     bool next_string_key; // helper context to determine whether the next JSON_STRING token is a key or a value
 } Parser;
+
+extern Parser* parser_init(char* source);
+extern void parser_destroy(Parser *parser);
+extern JSONNode* gson_parse(Parser *parser, JSONNode *node);
+
 #endif
