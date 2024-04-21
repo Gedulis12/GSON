@@ -1,4 +1,3 @@
 #!/bin/bash
 
-#gcc -DDEBUG -Wall -g gson.c debug.c -o gson
-gcc -Wall -g gson.c debug.c -o gson
+gcc -DDEBUG=0 -Wall -g gson.c debug.c -o gson
