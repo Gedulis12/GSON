@@ -433,16 +433,41 @@ static void gson_string_validate(Parser *parser, char *check)
                     break;
                 case 'u':
                     {
+                        for (int j = 0; j < 4; j++)
+                        {
+                            if (!is_hex(check[i+2+j]))
+                                gson_error(parser, "wrong unicode escape code");
+                        }
                         char unicode[5];
                         strncpy(unicode, check + i + 2, 4);
                         unicode[4] = '\0';
                         int codepoint = (int)strtol(unicode, NULL, 16);
-                        if (codepoint >= 0 && codepoint <= 0xFFFF)
+                        if ((codepoint >> 13) == 6) // 00000110
                         {
-                            char subst[5];
-                            snprintf(subst, 5, "%lc", (wchar_t)codepoint);
+                            char b1 = (codepoint >> 8); // first byte of codepoint
+                            char b2 = (codepoint << 8) >> 8; // second byte of codepoint
+                            check[i] = b1;
+                            check[i+1] = b2;
+                            memmove(&check[i+2], &check[i+6], (key_len - 4 - i));
+                            key_len = key_len - 4;
+                            check[key_len] = '\0';
+                            if (realloc(check, sizeof(char)*(key_len+1)) == NULL)
+                            {
+                                printf("realloc failed\n");
+                            }
+
                         }
-                        //TODO
+                        else
+                        {
+                            check[i] = (char)codepoint;
+                            memmove(&check[i+1], &check[i+6], (key_len - 5 - i));
+                            key_len = key_len - 5;
+                            check[key_len] = '\0';
+                            if (realloc(check, sizeof(char)*(key_len+1)) == NULL)
+                            {
+                                printf("realloc failed\n");
+                            }
+                        }
                         break;
                     }
                 default:
