@@ -224,6 +224,36 @@ void parser_destroy(Parser *parser)
     free(parser);
 }
 
+static void gson_node_free(JSONNode *node)
+{
+    if (node->key != NULL)
+        free(node->key);
+
+    if (node->str_val != NULL)
+        free(node->str_val);
+
+    if (node->parent != NULL)
+    {
+        if (node->parent->type == JSON_ROOT)
+            gson_node_free(node->parent);
+    }
+
+    if (node != NULL)
+        free(node);
+}
+
+void gson_destroy(JSONNode *node)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+
+    gson_destroy(node->child);
+    gson_destroy(node->next);
+    gson_node_free(node);
+}
+
 static void parser_advance(Parser *parser)
 {
     parser->previous = parser->current;
@@ -379,94 +409,100 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
     return curr;
 }
 
-static void gson_string_substitute(char *check, char subst, int curr, int *key_len)
+static void gson_string_substitute(Parser *parser, char **check, char subst, int curr, int *key_len)
 {
-    check[curr+1] = subst;
-    memmove(&check[curr], &check[curr+1], (*key_len - 1 - curr));
+    (*check)[curr+1] = subst;
+    memmove(&(*check)[curr], &(*check)[curr+1], (*key_len - 1 - curr));
     *key_len = *key_len - 1;
-    check[*key_len] = '\0';
-    if (realloc(check, sizeof(char)*(*key_len+1)) == NULL)
+    (*check)[*key_len] = '\0';
+    char *tmp = realloc(*check, sizeof(char)*(*key_len+1));
+    if (!tmp)
     {
-        printf("realloc failed\n");
+        gson_error(parser, "memory allocation failed on escape sequence substitution");
     }
+    *check = tmp;
 }
 
 
-static void gson_string_validate(Parser *parser, char *check)
+static void gson_string_validate(Parser *parser, char **check)
 {
-    int key_len = strlen(check);
+    int key_len = strlen(*check);
     int *key_len_p = &key_len;
     for (int i = 0; i < key_len; i++)
     {
-        if (check[i] == '\\')
+        if ((*check)[i] == '\\')
         {
             if (i == key_len - 2) // at the last character of the string before the closing quote
             {
                 gson_error(parser, "Error: closing quote of the string cannot be escaped");
             }
 
-            switch(check[i+1])
+            switch((*check)[i+1])
             {
                 case '\\':
-                    gson_string_substitute(check, '\\', i, key_len_p);
+                    gson_string_substitute(parser, check, '\\', i, key_len_p);
                     break;
                 case '/':
-                    gson_string_substitute(check, '/', i, key_len_p);
+                    gson_string_substitute(parser, check, '/', i, key_len_p);
                     break;
                 case '"':
-                    gson_string_substitute(check, '"', i, key_len_p);
+                    gson_string_substitute(parser, check, '"', i, key_len_p);
                     break;
                 case 'b':
-                    gson_string_substitute(check, '\b', i, key_len_p);
+                    gson_string_substitute(parser, check, '\b', i, key_len_p);
                     break;
                 case 'f':
-                    gson_string_substitute(check, '\f', i, key_len_p);
+                    gson_string_substitute(parser, check, '\f', i, key_len_p);
                     break;
                 case 'n':
-                    gson_string_substitute(check, '\n', i, key_len_p);
+                    gson_string_substitute(parser, check, '\n', i, key_len_p);
                     break;
                 case 'r':
-                    gson_string_substitute(check, '\r', i, key_len_p);
+                    gson_string_substitute(parser, check, '\r', i, key_len_p);
                     break;
                 case 't':
-                    gson_string_substitute(check, '\r', i, key_len_p);
+                    gson_string_substitute(parser, check, '\r', i, key_len_p);
                     break;
                 case 'u':
                     {
                         for (int j = 0; j < 4; j++)
                         {
-                            if (!is_hex(check[i+2+j]))
+                            if (!is_hex((*check)[i+2+j]))
                                 gson_error(parser, "wrong unicode escape code");
                         }
                         char unicode[5];
-                        strncpy(unicode, check + i + 2, 4);
+                        strncpy(unicode, (*check) + i + 2, 4);
                         unicode[4] = '\0';
                         int codepoint = (int)strtol(unicode, NULL, 16);
                         if ((codepoint >> 13) == 6) // 00000110
                         {
                             char b1 = (codepoint >> 8); // first byte of codepoint
                             char b2 = (codepoint << 8) >> 8; // second byte of codepoint
-                            check[i] = b1;
-                            check[i+1] = b2;
-                            memmove(&check[i+2], &check[i+6], (key_len - 4 - i));
+                            (*check)[i] = b1;
+                            (*check)[i+1] = b2;
+                            memmove(&(*check)[i+2], &(*check)[i+6], (key_len - 4 - i));
                             key_len = key_len - 4;
-                            check[key_len] = '\0';
-                            if (realloc(check, sizeof(char)*(key_len+1)) == NULL)
+                            (*check)[key_len] = '\0';
+                            char *tmp = realloc(*check, sizeof(char)*(key_len+1));
+                            if (!tmp)
                             {
-                                printf("realloc failed\n");
+                                gson_error(parser, "memory allocation failed on escape sequence substitution");
                             }
+                            *check = tmp;
 
                         }
                         else
                         {
-                            check[i] = (char)codepoint;
-                            memmove(&check[i+1], &check[i+6], (key_len - 5 - i));
+                            (*check)[i] = (char)codepoint;
+                            memmove(&(*check)[i+1], &(*check)[i+6], (key_len - 5 - i));
                             key_len = key_len - 5;
-                            check[key_len] = '\0';
-                            if (realloc(check, sizeof(char)*(key_len+1)) == NULL)
+                            (*check)[key_len] = '\0';
+                            char *tmp = realloc(*check, sizeof(char)*(key_len+1));
+                            if (!tmp)
                             {
-                                printf("realloc failed\n");
+                                gson_error(parser, "memory allocation failed on escape sequence substitution");
                             }
+                            *check = tmp;
                         }
                         break;
                     }
@@ -501,7 +537,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         new->key = malloc(sizeof(char) * (parser->current.length + 1));
         memset(new->key, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(new->key, parser->current.start, parser->current.length);
-        gson_string_validate(parser, new->key);
+        gson_string_validate(parser, &(new->key));
         curr = new;
 #if DEBUG==1
         gson_debug_print_key(curr);
@@ -520,7 +556,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         curr->str_val = malloc(sizeof(char) * (parser->current.length + 1));
         memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(curr->str_val, parser->current.start, parser->current.length);
-        gson_string_validate(parser, curr->str_val);
+        gson_string_validate(parser, &(curr->str_val));
 #if DEBUG==1
         gson_debug_print_str_val(curr);
 #endif
@@ -550,7 +586,7 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         new->str_val = malloc(sizeof(char) * (parser->current.length + 1));
         memset(new->str_val, 0, sizeof(char) * (parser->current.length + 1));
         strncpy(new->str_val, parser->current.start, parser->current.length);
-        gson_string_validate(parser, new->str_val);
+        gson_string_validate(parser, &(new->str_val));
         curr = new;
 #if DEBUG==1
         gson_debug_print_str_val(curr);
@@ -601,6 +637,7 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     memset(num_str_val, 0, sizeof(char) * (parser->current.length + 1));
     strncat(num_str_val, parser->current.start, parser->current.length);
     float num_val = strtof(num_str_val, NULL);
+    free(num_str_val);
     curr->num_val = num_val;
 #if DEBUG==1
     gson_debug_print_num_val(curr);
@@ -931,6 +968,7 @@ int main(int argc, char* argv[])
     gson_debug_print_tree(node, 0);
 #endif
     parser_destroy(parser);
+    gson_destroy(node);
     free(source);
 
     return 0;
