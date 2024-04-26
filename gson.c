@@ -200,6 +200,7 @@ static Token scan_token(Scanner *scanner)
         case 'f': return token_boolean(scanner);
         case 'n': return token_null(scanner);
     }
+    if (c == '-' && is_digit(scanner_peek(scanner))) return token_number(scanner);
     return token_error(scanner, "Unexpected Character.");
 }
 
@@ -254,6 +255,12 @@ void gson_destroy(JSONNode *node)
     gson_node_free(node);
 }
 
+static void gson_error(Parser *parser, char *message)
+{
+    printf("%s at line %i\n", message, parser->current.line);
+    parser->had_error = true;
+}
+
 static void parser_advance(Parser *parser)
 {
     parser->previous = parser->current;
@@ -263,9 +270,10 @@ static void parser_advance(Parser *parser)
     {
         parser->current = scan_token(scanner);
         if (parser->current.type != TOKEN_ERROR) break;
-        char *debug_str = malloc((sizeof(char) * parser->current.length) + 1);
-        strncpy(debug_str, parser->current.start, parser->current.length);
-        printf("Error at line %i: %s\n", parser->current.line, debug_str);
+        size_t length = parser->current.length;
+        char *debug_str = malloc(sizeof(char) * (length + 1));
+        memcpy(debug_str, parser->current.start, length);
+        gson_error(parser, debug_str);
         free(debug_str);
     }
 }
@@ -279,12 +287,6 @@ static JSONNode* gson_node_create()
     node->key = NULL;
     node->str_val = NULL;
     return node;
-}
-
-static void gson_error(Parser *parser, char *message)
-{
-    printf("%s at line %i\n", message, parser->current.line);
-    parser->had_error = true;
 }
 
 static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
@@ -534,9 +536,9 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
             new->parent = curr;
             curr->child = new;
         }
-        new->key = malloc(sizeof(char) * (parser->current.length + 1));
-        memset(new->key, 0, sizeof(char) * (parser->current.length + 1));
-        strncpy(new->key, parser->current.start, parser->current.length);
+        size_t length = parser->current.length;
+        new->key = malloc(sizeof(char) * (length + 1));
+        memcpy(new->key, parser->current.start, length);
         gson_string_validate(parser, &(new->key));
         curr = new;
 #if DEBUG==1
@@ -553,9 +555,9 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && curr->type == JSON_TEMP_STUB && !parser->has_next)
     {
         curr->type = JSON_STRING;
-        curr->str_val = malloc(sizeof(char) * (parser->current.length + 1));
-        memset(curr->str_val, 0, sizeof(char) * (parser->current.length + 1));
-        strncpy(curr->str_val, parser->current.start, parser->current.length);
+        size_t length = parser->current.length;
+        curr->str_val = malloc(sizeof(char) * (length + 1));
+        memcpy(curr->str_val, parser->current.start, length);
         gson_string_validate(parser, &(curr->str_val));
 #if DEBUG==1
         gson_debug_print_str_val(curr);
@@ -583,9 +585,9 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
             new->parent = curr;
             curr->child = new;
         }
-        new->str_val = malloc(sizeof(char) * (parser->current.length + 1));
-        memset(new->str_val, 0, sizeof(char) * (parser->current.length + 1));
-        strncpy(new->str_val, parser->current.start, parser->current.length);
+        size_t length = parser->current.length;
+        new->str_val = malloc(sizeof(char) * (length + 1));
+        memcpy(new->str_val, parser->current.start, length);
         gson_string_validate(parser, &(new->str_val));
         curr = new;
 #if DEBUG==1
@@ -633,11 +635,14 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
         gson_error(parser, "Error");
         return NULL;
     }
-    char *num_str_val = malloc((sizeof(char) * parser->current.length) + 1);
-    memset(num_str_val, 0, sizeof(char) * (parser->current.length + 1));
-    strncat(num_str_val, parser->current.start, parser->current.length);
+    size_t length = parser->current.length;
+    char *num_str_val = malloc(sizeof(char) * (length + 1));
+    memcpy(num_str_val, parser->current.start, length);
+    num_str_val[length] = '\0';
     float num_val = strtof(num_str_val, NULL);
     free(num_str_val);
+    curr->num_val = num_val;
+
     curr->num_val = num_val;
 #if DEBUG==1
     gson_debug_print_num_val(curr);
