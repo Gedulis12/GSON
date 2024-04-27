@@ -6,5 +6,5 @@ TODO:
   - [x] Handle special characters for strings (\" \\ \/ \b \f \n \r \t \u (0x01 0x02 0x03 0x04))
     - [x] check re-allock errors
   - [x] Fix memory leaks (implement deletion of parsed nodes)
-  - [ ] Implement check for UTF-8 characters
+  - [x] Implement check for UTF-8 characters
   - [ ] Write a bunch of tests

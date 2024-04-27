@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
-#include <wchar.h>
 #include "gson_int.h"
 #if DEBUG==1
 #include "debug.h"
@@ -15,7 +14,7 @@ static Scanner* scanner_init(const char *source)
     if (scanner == NULL)
     {
         perror("Memory allocation for scanner failed\n");
-        exit(1);
+        return NULL;
     }
     scanner->start = source;
     scanner->current = source;
@@ -94,14 +93,6 @@ static void scanner_skip_white_space(Scanner *scanner)
     }
 }
 
-static bool match(char expected, Scanner *scanner)
-{
-    if (scanner_is_at_end(scanner)) return false;
-    if (*scanner->current != expected) return false;
-    scanner->current++;
-    return true;
-}
-
 static bool is_digit(char c)
 {
     return c >= '0' && c <= '9';
@@ -114,17 +105,49 @@ static bool is_hex(char c)
            (c >= '0' && c <= '9');
 }
 
-//TODO: handle the escape sequences correctly
 static Token token_string(Scanner *scanner)
 {
+
     while ((scanner_peek(scanner) != '"' || (scanner_peek(scanner) == '"' && scanner->current[-1] == '\\')) && !scanner_is_at_end(scanner))
     {
         if (scanner_peek(scanner) == '\n') scanner->line++;
-        scanner_advance(scanner);
+
+        if ((scanner_peek(scanner) & 0x80) == 0) // if not 10000000
+        {
+            scanner_advance(scanner);
+        }
+        // order of checking is important as checking if char & 0xc0 will also be true for 0xe0 and 0xf0
+        else if ((scanner_peek(scanner) & 0xf0) == 0xf0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11110000 10000000
+        {
+            scanner_advance(scanner);
+            scanner_advance(scanner);
+            if ((scanner_peek(scanner) & 0x80) == 0x80 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 10000000 10000000
+            {
+                scanner_advance(scanner);
+                scanner_advance(scanner);
+            }
+        }
+        else if ((scanner_peek(scanner) & 0xe0) == 0xe0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11100000 10000000
+        {
+            scanner_advance(scanner);
+            if ((scanner_peek_next(scanner) & 0x80) == 0x80) // if 10000000
+            {
+                scanner_advance(scanner);
+                scanner_advance(scanner);
+            }
+        }
+        else if ((scanner_peek(scanner) & 0xc0) == 0xc0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11000000 10000000
+        {
+            scanner_advance(scanner);
+            scanner_advance(scanner);
+        }
+        else
+        {
+            return token_error(scanner, "Invalid UTF-8 in string");
+        }
     }
 
     if (scanner_is_at_end(scanner)) return token_error(scanner, "Unterminated string");
-
     scanner_advance(scanner);
     return token_make(TOKEN_STRING, scanner);
 }
@@ -210,7 +233,7 @@ Parser* parser_init(char* source)
     if (parser == NULL)
     {
         perror("Memory allocation for parser failed\n");
-        exit(1);
+        return NULL;
     }
     parser->scanner = scanner_init(source);
     parser->depth = 0;
@@ -272,15 +295,26 @@ static void parser_advance(Parser *parser)
         if (parser->current.type != TOKEN_ERROR) break;
         size_t length = parser->current.length;
         char *debug_str = malloc(sizeof(char) * (length + 1));
+        if (!debug_str)
+        {
+            perror("Memory allocation failed\n");
+            break;
+        }
+        debug_str[length] = '\0';
         memcpy(debug_str, parser->current.start, length);
         gson_error(parser, debug_str);
         free(debug_str);
+        break;
     }
 }
 
 static JSONNode* gson_node_create()
 {
     JSONNode *node = (JSONNode*)malloc(sizeof(JSONNode));
+    if (!node)
+    {
+        return NULL;
+    }
     node->child = NULL;
     node->parent = NULL;
     node->next = NULL;
@@ -299,6 +333,11 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
     else
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
         new->type = JSON_OBJECT;
         new->depth = parser->depth;
         if (parser->has_next)
@@ -359,6 +398,11 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
     else
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_ARRAY;
         new->depth = parser->depth;
@@ -521,6 +565,11 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     if (parser->next_string_key == true)
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_TEMP_STUB;
         new->depth = parser->depth;
@@ -538,6 +587,12 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         }
         size_t length = parser->current.length;
         new->key = malloc(sizeof(char) * (length + 1));
+        if (!new->key)
+        {
+            gson_error(parser, "Memory allocation failed\n");
+            return curr;
+        }
+        new->key[length] = '\0';
         memcpy(new->key, parser->current.start, length);
         gson_string_validate(parser, &(new->key));
         curr = new;
@@ -557,6 +612,12 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         curr->type = JSON_STRING;
         size_t length = parser->current.length;
         curr->str_val = malloc(sizeof(char) * (length + 1));
+        if (!curr->str_val)
+        {
+            gson_error(parser, "Memory allocation failed\n");
+            return curr;
+        }
+        curr->str_val[length] = '\0';
         memcpy(curr->str_val, parser->current.start, length);
         gson_string_validate(parser, &(curr->str_val));
 #if DEBUG==1
@@ -570,6 +631,11 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_STRING;
         new->depth = parser->depth;
@@ -587,6 +653,12 @@ static JSONNode* gson_string(Parser *parser, JSONNode *curr)
         }
         size_t length = parser->current.length;
         new->str_val = malloc(sizeof(char) * (length + 1));
+        if (!new->str_val)
+        {
+            gson_error(parser, "Memory allocation failed\n");
+            return new;
+        }
+        new->str_val[length] = '\0';
         memcpy(new->str_val, parser->current.start, length);
         gson_string_validate(parser, &(new->str_val));
         curr = new;
@@ -613,6 +685,11 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_NUMBER;
         new->depth = parser->depth;
@@ -637,8 +714,13 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     }
     size_t length = parser->current.length;
     char *num_str_val = malloc(sizeof(char) * (length + 1));
-    memcpy(num_str_val, parser->current.start, length);
+    if (!num_str_val)
+    {
+        gson_error(parser, "Memory allocation failed\n");
+        return curr;
+    }
     num_str_val[length] = '\0';
+    memcpy(num_str_val, parser->current.start, length);
     float num_val = strtof(num_str_val, NULL);
     free(num_str_val);
     curr->num_val = num_val;
@@ -663,6 +745,11 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_TRUE_VAL;
         new->depth = parser->depth;
@@ -687,6 +774,11 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
     }
     char *val = "true";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    if (!curr->str_val)
+    {
+        gson_error(parser, "Memory allocation failed\n");
+        return curr;
+    }
     strcpy(curr->str_val, val);
 #if DEBUG==1
     gson_debug_print_str_val(curr);
@@ -706,6 +798,11 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_FALSE_VAL;
         new->depth = parser->depth;
@@ -730,6 +827,11 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
     }
     char *val = "false";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    if (!curr->str_val)
+    {
+        gson_error(parser, "Memory allocation failed\n");
+        return curr;
+    }
     strcpy(curr->str_val, val);
 #if DEBUG==1
     gson_debug_print_str_val(curr);
@@ -750,6 +852,11 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
     else if (parser->next_string_key == false && (parser->has_next || curr->type == JSON_ARRAY)) // in array
     {
         JSONNode *new = gson_node_create();
+        if (new == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return curr;
+        }
 
         new->type = JSON_NULL_VAL;
         new->depth = parser->depth;
@@ -774,6 +881,11 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
     }
     char *val = "null";
     curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
+    if (!curr->str_val)
+    {
+        gson_error(parser, "Memory allocation failed\n");
+        return curr;
+    }
     strcpy(curr->str_val, val);
 #if DEBUG==1
     gson_debug_print_str_val(curr);
@@ -786,6 +898,11 @@ JSONNode* gson_parse(Parser *parser, JSONNode *curr)
     if (curr == NULL)
     {
         curr = gson_node_create(); // root node
+        if (curr == NULL)
+        {
+            gson_error(parser, "Memory allocation failed");
+            return NULL;
+        }
         curr->type = JSON_ROOT;
         curr->depth = 0;
     }
