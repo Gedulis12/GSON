@@ -60,8 +60,9 @@ typedef struct parser {
     bool next_string_key; // helper context to determine whether the next JSON_STRING token is a key or a value
 } Parser;
 
-extern Parser* parser_init(char* source);
-extern void parser_destroy(Parser *parser);
-extern JSONNode* gson_parse(Parser *parser, JSONNode *node);
+Parser* parser_init(char* source);
+void parser_destroy(Parser *parser);
+JSONNode* gson_parse(Parser *parser, JSONNode *node);
+void gson_destroy(JSONNode *node);
 
 #endif
