@@ -1,4 +1,4 @@
-#include <gson.h>
+#include "./include/gson.h"
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +59,9 @@ int main(int argc, char* argv[])
     t = clock() - t; 
     double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
     printf("parsing took %f seconds to execute \n", time_taken);
+    JSONNode *key = gson_find_by_key(node, "\"gender\"");
+    if (key != NULL)
+        printf("Found!\n");
 #if DEBUG==1
     gson_debug_print_tree(node, 0);
 #endif

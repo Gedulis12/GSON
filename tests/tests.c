@@ -114,6 +114,7 @@ int main()
         gson_destroy(node);
     }
 
+    // print summary
     if (total == passed)
     {
         printf("SUCCESS: %d/%d test PASSED\n", passed, total);

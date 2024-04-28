@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <time.h>
 #include "gson_int.h"
 #if DEBUG==1
 #include "debug.h"
@@ -774,17 +773,6 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
         gson_error(parser, "Error");
         return NULL;
     }
-    char *val = "true";
-    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
-    if (!curr->str_val)
-    {
-        gson_error(parser, "Memory allocation failed\n");
-        return curr;
-    }
-    strcpy(curr->str_val, val);
-#if DEBUG==1
-    gson_debug_print_str_val(curr);
-#endif
     return curr;
 }
 JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
@@ -827,17 +815,6 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
         gson_error(parser, "Error");
         return NULL;
     }
-    char *val = "false";
-    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
-    if (!curr->str_val)
-    {
-        gson_error(parser, "Memory allocation failed\n");
-        return curr;
-    }
-    strcpy(curr->str_val, val);
-#if DEBUG==1
-    gson_debug_print_str_val(curr);
-#endif
     return curr;
 }
 
@@ -881,17 +858,6 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
         gson_error(parser, "Error");
         return NULL;
     }
-    char *val = "null";
-    curr->str_val = malloc(sizeof(char) * (strlen(val) + 1));
-    if (!curr->str_val)
-    {
-        gson_error(parser, "Memory allocation failed\n");
-        return curr;
-    }
-    strcpy(curr->str_val, val);
-#if DEBUG==1
-    gson_debug_print_str_val(curr);
-#endif
     return curr;
 }
 
@@ -1031,3 +997,25 @@ gson_debug_general(parser, curr);
     if (parser->had_error) return NULL;
     return curr;
 }
+
+JSONNode* gson_find_by_key(JSONNode *node, char *key)
+{
+    if (node == NULL)
+        return NULL;
+
+    if (node->key && strcmp(key, node->key) == 0)
+    {
+        return node;
+    }
+
+    JSONNode *found_in_child = gson_find_by_key(node->child, key);
+    if (found_in_child != NULL)
+        return found_in_child;
+
+    JSONNode *found_in_next = gson_find_by_key(node->next, key);
+    if (found_in_next != NULL)
+        return found_in_next;
+
+    return NULL;
+}
+

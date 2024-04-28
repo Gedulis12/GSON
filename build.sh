@@ -2,9 +2,10 @@
 
 set -xe
 NAME=gson
-CCFLAGS="-DDEBUG=0 -Wall -g -O3"
+CCFLAGS="-DDEBUG=0 -Wall -g"
 
 compile_lib() {
+    mkdir -pv lib
     gcc $CCFLAGS -c src/$NAME.c  -o lib/$NAME.o
     gcc $CCFLAGS -c src/debug.c  -o lib/debug.o
     ar rcs lib/lib$NAME.a lib/$NAME.o lib/debug.o
