@@ -2,7 +2,7 @@
 
 set -xe
 NAME=gson
-CCFLAGS="-DDEBUG=0 -Wall -g"
+CCFLAGS="-DDEBUG=0 -Wall -g -O3"
 
 compile_lib() {
     gcc $CCFLAGS -c src/$NAME.c  -o lib/$NAME.o
@@ -18,7 +18,7 @@ run_tests() {
 
 if [ ! -z "$1" ] && [ "$1" == "clean" ]
 then
-    rm -vf lib/lib$NAME.a lib/$NAME.o ./$NAME ./"$NAME"_tests
+    rm -vf lib/lib$NAME.a lib/$NAME.o lib/debug.o ./$NAME ./"$NAME"_tests
 elif [ ! -z "$1" ] && [ "$1" == "test" ]
 then
     run_tests 2>/dev/null
