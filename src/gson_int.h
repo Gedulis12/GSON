@@ -34,7 +34,7 @@ typedef enum {
     TOKEN_STRING,
     TOKEN_NUMBER,
     TOKEN_TRUE, TOKEN_FALSE, TOKEN_NULL_VAL,
-    TOKEN_ERROR, TOKEN_EOF
+    TOKEN_ERROR, TOKEN_EOF, TOKEN_INIT,
 } TokenType;
 
 typedef struct {

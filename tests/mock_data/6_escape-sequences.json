@@ -1,0 +1,12 @@
+{
+  "key1": "te\"st",
+  "key2": "te\\st",
+  "key3": "te\/st",
+  "key4": "te\bst",
+  "key5": "te\fst",
+  "key6": "te\nst",
+  "key7": "te\rst",
+  "key8": "te\tst",
+  "key8": "te\u0041st",
+  "key8": "te\uc48dst"
+}

@@ -117,26 +117,26 @@ static Token token_string(Scanner *scanner)
             scanner_advance(scanner);
         }
         // order of checking is important as checking if char & 0xc0 will also be true for 0xe0 and 0xf0
-        else if ((scanner_peek(scanner) & 0xf0) == 0xf0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11110000 10000000
+        else if ((scanner_peek(scanner) & 0xf0) == 0xf0 && (scanner_peek_next(scanner) & 0xc0) == 0x80) // if 11110000 10000000
         {
             scanner_advance(scanner);
             scanner_advance(scanner);
-            if ((scanner_peek(scanner) & 0x80) == 0x80 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 10000000 10000000
+            if ((scanner_peek(scanner) & 0xc0) == 0x80 && (scanner_peek_next(scanner) & 0xc0) == 0x80) // if 10000000 10000000
             {
                 scanner_advance(scanner);
                 scanner_advance(scanner);
             }
         }
-        else if ((scanner_peek(scanner) & 0xe0) == 0xe0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11100000 10000000
+        else if ((scanner_peek(scanner) & 0xe0) == 0xe0 && (scanner_peek_next(scanner) & 0xc0) == 0x80) // if 11100000 10000000
         {
             scanner_advance(scanner);
-            if ((scanner_peek_next(scanner) & 0x80) == 0x80) // if 10000000
+            if ((scanner_peek_next(scanner) & 0xc0) == 0x80) // if 10000000
             {
                 scanner_advance(scanner);
                 scanner_advance(scanner);
             }
         }
-        else if ((scanner_peek(scanner) & 0xc0) == 0xc0 && (scanner_peek_next(scanner) & 0x80) == 0x80) // if 11000000 10000000
+        else if ((scanner_peek(scanner) & 0xc0) == 0xc0 && (scanner_peek_next(scanner) & 0xc0) == 0x80) // if 11000000 10000000
         {
             scanner_advance(scanner);
             scanner_advance(scanner);
@@ -239,6 +239,7 @@ Parser* parser_init(char* source)
     parser->depth = 0;
     parser->had_error = false;
     parser->has_next = false;
+    parser->current.type = TOKEN_INIT;
     return parser;
 }
 
@@ -280,7 +281,7 @@ void gson_destroy(JSONNode *node)
 
 static void gson_error(Parser *parser, char *message)
 {
-    printf("%s at line %i\n", message, parser->current.line);
+    fprintf(stderr, "%s at line %i\n", message, parser->current.line);
     parser->had_error = true;
 }
 
@@ -302,6 +303,7 @@ static void parser_advance(Parser *parser)
         }
         debug_str[length] = '\0';
         memcpy(debug_str, parser->current.start, length);
+        parser->had_error = true;
         gson_error(parser, debug_str);
         free(debug_str);
         break;
@@ -362,18 +364,18 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
     {
         if (curr->type == JSON_OBJECT)
         {
-            gson_error(parser, "1error");
+            gson_error(parser, "Error");
         }
         if (curr->type == JSON_ARRAY)
         {
-            gson_error(parser, "2error");
+            gson_error(parser, "Error");
         }
         return curr;
     }
 
     if (parser->current.type == TOKEN_EOF)
     {
-        gson_error(parser, "3error");
+        gson_error(parser, "Error");
         return curr;
     }
 
@@ -429,18 +431,18 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
     {
         if (curr->type == JSON_OBJECT)
         {
-            gson_error(parser, "4error");
+            gson_error(parser, "Error");
         }
         if (curr->type == JSON_OBJECT)
         {
-            gson_error(parser, "5error");
+            gson_error(parser, "Error");
         }
         return curr;
     }
 
     if (parser->current.type == TOKEN_EOF)
     {
-        gson_error(parser, "6error");
+        gson_error(parser, "Error");
         return curr;
     }
 
@@ -939,7 +941,7 @@ gson_debug_general(parser, curr);
 
                     if (curr->depth != parser->depth || curr->type == JSON_ROOT || curr->type == JSON_ARRAY)
                     {
-                            gson_error(parser, "7error");
+                            gson_error(parser, "Error");
                     }
 
                     if (parser->has_next)
@@ -970,7 +972,7 @@ gson_debug_general(parser, curr);
 
                     if (curr->depth != parser->depth || curr->type == JSON_ROOT || curr->type == JSON_OBJECT)
                     {
-                            gson_error(parser, "8error");
+                            gson_error(parser, "Error");
                     }
 
                     if (parser->has_next)
@@ -989,7 +991,7 @@ gson_debug_general(parser, curr);
                 {
                     if (curr->type == JSON_ROOT)
                     {
-                        gson_error(parser, "9error");
+                        gson_error(parser, "Error");
                     }
                     curr = gson_string(parser, curr);
                     break;
@@ -997,28 +999,28 @@ gson_debug_general(parser, curr);
             case TOKEN_NUMBER:
                 if (curr->type == JSON_ROOT)
                 {
-                    gson_error(parser, "10error");
+                    gson_error(parser, "Error");
                 }
                 curr = gson_number(parser, curr);
                 break;
             case TOKEN_TRUE:
                 if (curr->type == JSON_ROOT)
                 {
-                    gson_error(parser, "11error");
+                    gson_error(parser, "Error");
                 }
                 curr = gson_true_val(parser, curr);
                 break;
             case TOKEN_FALSE:
                 if (curr->type == JSON_ROOT)
                 {
-                    gson_error(parser, "12error");
+                    gson_error(parser, "Error");
                 }
                 curr = gson_false_val(parser, curr);
                 break;
             case TOKEN_NULL_VAL:
                 if (curr->type == JSON_ROOT)
                 {
-                    gson_error(parser, "13error");
+                    gson_error(parser, "Error");
                 }
                 curr = gson_null_val(parser, curr);
                 break;
@@ -1026,5 +1028,6 @@ gson_debug_general(parser, curr);
         }
         if (parser->had_error) return NULL;
     }
+    if (parser->had_error) return NULL;
     return curr;
 }

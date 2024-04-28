@@ -1,0 +1,17 @@
+
+    "name": "Matt",
+    "gender": "male",
+    "age": 30,
+    "has_kids": true,
+    "kids":
+    [
+        {
+            "name": "Sissy",
+            "age": 5
+        },
+        {
+            "name": "August",
+            "age": 7
+        }
+    ]
+}

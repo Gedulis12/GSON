@@ -1,0 +1,9 @@
+{
+    "one_byte": "a",
+    "two_byte": "Č",
+    "three_byte": "⛔",
+    "four_byte": "🏁",
+    "array": [
+        "a", "Č", "⛔","🏁"
+    ]
+}
