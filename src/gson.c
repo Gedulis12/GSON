@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +34,7 @@ static Token token_make(TokenType type, Scanner *scanner)
     Token token;
     token.type = type;
     token.start = scanner->start;
-    token.length = (int)(scanner->current - scanner->start);
+    token.length = (uint32_t)(scanner->current - scanner->start);
     token.line = scanner->line;
     return token;
 }
@@ -43,7 +44,7 @@ static Token token_error(Scanner *scanner, const char *message)
     Token token;
     token.type = TOKEN_ERROR;
     token.start = message;
-    token.length = (int)strlen(message);
+    token.length = (uint32_t)strlen(message);
     token.line = scanner->line;
     return token;
 }
@@ -456,7 +457,7 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
     return curr;
 }
 
-static void gson_string_substitute(Parser *parser, char **check, char subst, int curr, int *key_len)
+static void gson_string_substitute(Parser *parser, char **check, char subst, uint32_t curr, uint32_t *key_len)
 {
     (*check)[curr+1] = subst;
     memmove(&(*check)[curr], &(*check)[curr+1], (*key_len - 1 - curr));
@@ -473,13 +474,13 @@ static void gson_string_substitute(Parser *parser, char **check, char subst, int
 
 static void gson_string_validate(Parser *parser, char **check)
 {
-    int key_len = strlen(*check);
-    int *key_len_p = &key_len;
-    for (int i = 0; i < key_len; i++)
+    uint32_t len = strlen(*check);
+    uint32_t *len_p = &len;
+    for (size_t i = 0; i < len; i++)
     {
         if ((*check)[i] == '\\')
         {
-            if (i == key_len - 2) // at the last character of the string before the closing quote
+            if (i == len - 2) // at the last character of the string before the closing quote
             {
                 gson_error(parser, "Error: closing quote of the string cannot be escaped");
             }
@@ -487,32 +488,32 @@ static void gson_string_validate(Parser *parser, char **check)
             switch((*check)[i+1])
             {
                 case '\\':
-                    gson_string_substitute(parser, check, '\\', i, key_len_p);
+                    gson_string_substitute(parser, check, '\\', i, len_p);
                     break;
                 case '/':
-                    gson_string_substitute(parser, check, '/', i, key_len_p);
+                    gson_string_substitute(parser, check, '/', i, len_p);
                     break;
                 case '"':
-                    gson_string_substitute(parser, check, '"', i, key_len_p);
+                    gson_string_substitute(parser, check, '"', i, len_p);
                     break;
                 case 'b':
-                    gson_string_substitute(parser, check, '\b', i, key_len_p);
+                    gson_string_substitute(parser, check, '\b', i, len_p);
                     break;
                 case 'f':
-                    gson_string_substitute(parser, check, '\f', i, key_len_p);
+                    gson_string_substitute(parser, check, '\f', i, len_p);
                     break;
                 case 'n':
-                    gson_string_substitute(parser, check, '\n', i, key_len_p);
+                    gson_string_substitute(parser, check, '\n', i, len_p);
                     break;
                 case 'r':
-                    gson_string_substitute(parser, check, '\r', i, key_len_p);
+                    gson_string_substitute(parser, check, '\r', i, len_p);
                     break;
                 case 't':
-                    gson_string_substitute(parser, check, '\r', i, key_len_p);
+                    gson_string_substitute(parser, check, '\r', i, len_p);
                     break;
                 case 'u':
                     {
-                        for (int j = 0; j < 4; j++)
+                        for (uint8_t j = 0; j < 4; j++)
                         {
                             if (!is_hex((*check)[i+2+j]))
                                 gson_error(parser, "wrong unicode escape code");
@@ -520,17 +521,17 @@ static void gson_string_validate(Parser *parser, char **check)
                         char unicode[5];
                         strncpy(unicode, (*check) + i + 2, 4);
                         unicode[4] = '\0';
-                        int codepoint = (int)strtol(unicode, NULL, 16);
+                        int32_t codepoint = (int32_t)strtol(unicode, NULL, 16);
                         if ((codepoint >> 13) == 6) // 00000110
                         {
                             char b1 = (codepoint >> 8); // first byte of codepoint
                             char b2 = (codepoint << 8) >> 8; // second byte of codepoint
                             (*check)[i] = b1;
                             (*check)[i+1] = b2;
-                            memmove(&(*check)[i+2], &(*check)[i+6], (key_len - 4 - i));
-                            key_len = key_len - 4;
-                            (*check)[key_len] = '\0';
-                            char *tmp = realloc(*check, sizeof(char)*(key_len+1));
+                            memmove(&(*check)[i+2], &(*check)[i+6], (len - 4 - i));
+                            len = len - 4;
+                            (*check)[len] = '\0';
+                            char *tmp = realloc(*check, sizeof(char)*(len+1));
                             if (!tmp)
                             {
                                 gson_error(parser, "memory allocation failed on escape sequence substitution");
@@ -541,10 +542,10 @@ static void gson_string_validate(Parser *parser, char **check)
                         else
                         {
                             (*check)[i] = (char)codepoint;
-                            memmove(&(*check)[i+1], &(*check)[i+6], (key_len - 5 - i));
-                            key_len = key_len - 5;
-                            (*check)[key_len] = '\0';
-                            char *tmp = realloc(*check, sizeof(char)*(key_len+1));
+                            memmove(&(*check)[i+1], &(*check)[i+6], (len - 5 - i));
+                            len = len - 5;
+                            (*check)[len] = '\0';
+                            char *tmp = realloc(*check, sizeof(char)*(len+1));
                             if (!tmp)
                             {
                                 gson_error(parser, "memory allocation failed on escape sequence substitution");
@@ -1000,22 +1001,125 @@ gson_debug_general(parser, curr);
 
 JSONNode* gson_find_by_key(JSONNode *node, char *key)
 {
-    if (node == NULL)
-        return NULL;
-
-    if (node->key && strcmp(key, node->key) == 0)
+    while (node != NULL)
     {
-        return node;
+        if (node->key && strcmp(key, node->key) == 0)
+        {
+            return node;
+        }
+        if (node->child)
+        {
+            node = node->child;
+        }
+        else
+        {
+            while (node != NULL && node->next == NULL)
+            {
+                node = node->parent;
+            }
+            if (node != NULL)
+            {
+                node = node->next;
+            }
+        }
     }
-
-    JSONNode *found_in_child = gson_find_by_key(node->child, key);
-    if (found_in_child != NULL)
-        return found_in_child;
-
-    JSONNode *found_in_next = gson_find_by_key(node->next, key);
-    if (found_in_next != NULL)
-        return found_in_next;
-
     return NULL;
 }
 
+JSONNode* gson_find_by_str_val(JSONNode *node, char *value)
+{
+    while (node != NULL)
+    {
+        if (node->str_val
+                && strcmp(value, node->str_val) == 0
+                && node->type == JSON_STRING)
+        {
+            return node;
+        }
+        if (node->child)
+        {
+            node = node->child;
+        }
+        else
+        {
+            while (node != NULL && node->next == NULL)
+            {
+                node = node->parent;
+            }
+            if (node != NULL)
+            {
+                node = node->next;
+            }
+        }
+    }
+    return NULL;
+}
+
+JSONNode* gson_find_by_float_val(JSONNode *node, float value)
+{
+    while (node != NULL)
+    {
+        if (node->num_val && value == node->num_val && node->type == JSON_NUMBER)
+        {
+            return node;
+        }
+        if (node->child)
+        {
+            node = node->child;
+        }
+        else
+        {
+            while (node != NULL && node->next == NULL)
+            {
+                node = node->parent;
+            }
+            if (node != NULL)
+            {
+                node = node->next;
+            }
+        }
+    }
+    return NULL;
+}
+
+JSONType gson_get_object_type(JSONNode *node)
+{
+    if (node != NULL) return node->type;
+
+}
+
+char* gson_get_key_value(JSONNode *node)
+{
+    if (node && node->key)
+    {
+        return node->key;
+    }
+    return NULL;
+}
+
+char* gson_get_str_value(JSONNode *node)
+{
+    if (node && node->str_val && node->type == JSON_STRING)
+    {
+        return node->str_val;
+    }
+    return NULL;
+}
+
+float gson_get_float_value(JSONNode *node)
+{
+    if (node && node->num_val && node->type == JSON_NUMBER)
+    {
+        return node->num_val;
+    }
+}
+
+JSONType gson_get_bool_value(JSONNode *node)
+{
+    if (node->type == JSON_TRUE_VAL
+            || node->type == JSON_FALSE_VAL
+            || node->type == JSON_NULL_VAL)
+    {
+        return node->type;
+    }
+}

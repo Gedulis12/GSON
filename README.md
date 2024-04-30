@@ -5,5 +5,5 @@
 ```
 git clone https://github.com/Gedulis12/GSON.git
 cd GSON
-./build.sh
+make
 ```

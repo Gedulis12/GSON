@@ -1,4 +1,4 @@
-#include "../src/gson_int.h"
+#include "../include/gson.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -68,6 +68,7 @@ int main()
         "./tests/mock_data/5_utf-8.json",
         "./tests/mock_data/6_escape-sequences.json",
     };
+    int total_should_pass = (sizeof(test_files_should_pass) / sizeof(test_files_should_pass[0]));
 
     char *test_files_should_fail[] = {
         "./tests/mock_data/7_binary.json",
@@ -77,9 +78,8 @@ int main()
         "./tests/mock_data/11_unclosed_brace.json",
         "./tests/mock_data/12_unclosed_bracket.json",
     };
-
-    int total_should_pass = (sizeof(test_files_should_pass) / sizeof(test_files_should_pass[0]));
     int total_should_fail = (sizeof(test_files_should_fail) / sizeof(test_files_should_fail[0]));
+
     total = total_should_pass + total_should_fail;
 
     for (int i = 0; i < total_should_pass; i++)
