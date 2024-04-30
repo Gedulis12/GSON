@@ -1,12 +1,13 @@
+---
 name: Run build ant tests
 on:
   push:
     branches:
-    - master
-    - dev
+      - master
+      - dev
   pull_request:
     branches:
-    - master
+      - master
 
 jobs:
   build:
@@ -15,6 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: build library
-        run: ./build.sh
+        run: make
       - name: run tests
-        run: ./build.sh test
+        run: make test
