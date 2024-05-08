@@ -1,7 +1,7 @@
 CC=gcc
 INCDIRS=-I./include
-OPT=-O0
-DEFINES=DDEBUG=1
+OPT=-O3
+DEFINES=DDEBUG=0
 CFLAGS=-Wall -Wextra -g $(INCDIRS) $(OPT) $(DEPFLAGS) $(foreach D,$(DEFINES),-D$(D))
 
 SRC=src

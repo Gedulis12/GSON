@@ -67,9 +67,4 @@ extern char* gson_get_str_value(JSONNode *node);
  */
 extern float gson_get_float_value(JSONNode *node);
 
-/*
- * returns JSON_FALSE_VAL, JSON_TRUE_VAL or JSON_NULL if the 'node' is of appropriate type
- */
-extern JSONType gson_get_bool_value(JSONNode *node);
-
 #endif // GSON_H

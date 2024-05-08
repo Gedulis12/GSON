@@ -1123,13 +1123,3 @@ float gson_get_float_value(JSONNode *node)
         return node->num_val;
     }
 }
-
-JSONType gson_get_bool_value(JSONNode *node)
-{
-    if (node->type == JSON_TRUE_VAL
-            || node->type == JSON_FALSE_VAL
-            || node->type == JSON_NULL_VAL)
-    {
-        return node->type;
-    }
-}

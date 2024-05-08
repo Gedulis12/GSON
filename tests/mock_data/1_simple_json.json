@@ -1,8 +1,10 @@
 {
     "name": "Matt",
+    "surname": "Willson",
     "gender": "male",
     "age": 30,
     "has_kids": true,
+    "is_sad": false,
     "kids":
     [
         {
@@ -13,5 +15,6 @@
             "name": "August",
             "age": 7
         }
-    ]
+    ],
+    "grandkids": null
 }
