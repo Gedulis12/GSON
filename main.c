@@ -73,11 +73,11 @@ int main(int argc, char* argv[])
         return 1; // failed to parse
     }
     // SOME TESTING
-    JSONNode *key = gson_find_by_key(node, "\"gender\"");
+    JSONNode *key = gson_find_by_key(node, "gender");
     if (key != NULL)
-        printf("1Found: %s\n", gson_get_key_value(key));
+        printf("1Found %s:%s\n", gson_get_key_value(key), gson_get_str_value(key));
 
-    JSONNode *val = gson_find_by_str_val(node, "\"male\"");
+    JSONNode *val = gson_find_by_str_val(node, "male");
     if (val != NULL)
         printf("2Found: %s\n", gson_get_str_value(val));
 
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    JSONNode *_bool = gson_find_by_key(node, "\"has_kids\"");
+    JSONNode *_bool = gson_find_by_key(node, "has_kids");
     if (_bool != NULL)
     {
         JSONType bool_type = gson_get_object_type(_bool);

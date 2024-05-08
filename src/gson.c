@@ -33,8 +33,17 @@ static Token token_make(TokenType type, Scanner *scanner)
 {
     Token token;
     token.type = type;
-    token.start = scanner->start;
-    token.length = (uint32_t)(scanner->current - scanner->start);
+    // remove quotes
+    if (type == TOKEN_STRING)
+    {
+        token.start = scanner->start+1;
+        token.length = (uint32_t)(scanner->current - scanner->start-2);
+    }
+    else
+    {
+        token.start = scanner->start;
+        token.length = (uint32_t)(scanner->current - scanner->start);
+    }
     token.line = scanner->line;
     return token;
 }
@@ -240,6 +249,7 @@ Parser* parser_init(char* source)
     parser->had_error = false;
     parser->has_next = false;
     parser->current.type = TOKEN_INIT;
+
     return parser;
 }
 

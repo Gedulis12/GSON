@@ -17,17 +17,6 @@ typedef enum {
     JSON_TEMP_STUB,
 } JSONType;
 
-typedef struct jsonnode {
-    JSONType type;
-    uint32_t depth;
-    char *key;
-    char *str_val;
-    float num_val;
-    struct jsonnode *child;
-    struct jsonnode *parent;
-    struct jsonnode *next;
-} JSONNode;
-
 typedef enum {
     TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
     TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,
@@ -38,6 +27,17 @@ typedef enum {
     TOKEN_TRUE, TOKEN_FALSE, TOKEN_NULL_VAL,
     TOKEN_ERROR, TOKEN_EOF, TOKEN_INIT,
 } TokenType;
+
+typedef struct jsonnode {
+    JSONType type;
+    uint32_t depth;
+    char *key;
+    char *str_val;
+    float num_val;
+    struct jsonnode *child;
+    struct jsonnode *parent;
+    struct jsonnode *next;
+} JSONNode;
 
 typedef struct {
     TokenType type;
