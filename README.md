@@ -7,3 +7,4 @@ git clone https://github.com/Gedulis12/GSON.git
 cd GSON
 make
 ```
+To use in project include `include/gson.h` and link with `lib/libgson.a`
