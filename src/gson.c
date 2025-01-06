@@ -1001,11 +1001,15 @@ gson_debug_general(parser, curr);
 
 JSONNode* gson_find_by_key(JSONNode *node, char *key)
 {
+    JSONNode *orig = node;
     while (node != NULL)
     {
         if (node->key && strcmp(key, node->key) == 0)
         {
-            return node;
+            if (node != orig)
+            {
+                return node;
+            }
         }
         if (node->child)
         {
@@ -1028,13 +1032,17 @@ JSONNode* gson_find_by_key(JSONNode *node, char *key)
 
 JSONNode* gson_find_by_str_val(JSONNode *node, char *value)
 {
+    JSONNode *orig = node;
     while (node != NULL)
     {
         if (node->str_val
                 && strcmp(value, node->str_val) == 0
                 && node->type == JSON_STRING)
         {
-            return node;
+            if (node != orig)
+            {
+                return node;
+            }
         }
         if (node->child)
         {
@@ -1057,11 +1065,15 @@ JSONNode* gson_find_by_str_val(JSONNode *node, char *value)
 
 JSONNode* gson_find_by_float_val(JSONNode *node, float value)
 {
+    JSONNode *orig = node;
     while (node != NULL)
     {
         if (node->num_val && value == node->num_val && node->type == JSON_NUMBER)
         {
-            return node;
+            if (node != orig)
+            {
+                return node;
+            }
         }
         if (node->child)
         {
