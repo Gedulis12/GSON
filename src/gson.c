@@ -8,6 +8,8 @@
 #include "debug.h"
 #endif
 
+static JSONNode* _gson_parse(Parser *parser, JSONNode *curr);
+
 static Scanner* scanner_init(const char *source)
 {
     Scanner *scanner = (Scanner*)malloc(sizeof(Scanner));
@@ -243,41 +245,58 @@ Parser* parser_init(char* source)
     return parser;
 }
 
+
 void parser_destroy(Parser *parser)
 {
     scanner_destroy(parser->scanner);
     free(parser);
 }
 
+static JSONNode* gson_root_node(JSONNode *node) // given any node of the gson tree returns a root node
+{
+    if (!node) return NULL;
+    JSONNode *root = node;
+
+    while (root->parent && root->type != JSON_ROOT)
+    {
+        root = root->parent;
+    }
+    return root;
+}
+
 static void gson_node_free(JSONNode *node)
 {
+    if (!node) return;
+
     if (node->key != NULL)
         free(node->key);
 
     if (node->str_val != NULL)
         free(node->str_val);
 
-    if (node->parent != NULL)
-    {
-        if (node->parent->type == JSON_ROOT)
-            gson_node_free(node->parent);
-    }
+    free(node);
+    node = NULL;
+}
 
-    if (node != NULL)
-        free(node);
+static void _gson_destroy(JSONNode *node)
+{
+    if (!node) return;
+
+    _gson_destroy(node->child);
+    _gson_destroy(node->next);
+    gson_node_free(node);
 }
 
 void gson_destroy(JSONNode *node)
 {
-    if (node == NULL)
-    {
-        return;
-    }
+    if (!node) return;
 
-    gson_destroy(node->child);
-    gson_destroy(node->next);
-    gson_node_free(node);
+    JSONNode *root = gson_root_node(node);
+    if (!root) return;
+
+    _gson_destroy(root);
 }
+
 
 static void gson_error(Parser *parser, char *message)
 {
@@ -356,9 +375,10 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
         curr = new;
     }
 
-    gson_parse(parser, curr);
+    _gson_parse(parser, curr);
 
-    if (parser->had_error) return curr;
+    if (parser->had_error)
+        return curr;
 
     if (parser->current.type == TOKEN_RIGHT_BRACKET)
     {
@@ -423,9 +443,10 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
         curr = new;
     }
 
-    gson_parse(parser, curr);
+    _gson_parse(parser, curr);
 
-    if (parser->had_error) return curr;
+    if (parser->had_error)
+        return curr;
 
     if (parser->current.type == TOKEN_RIGHT_BRACE)
     {
@@ -864,6 +885,21 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
 
 JSONNode* gson_parse(Parser *parser, JSONNode *curr)
 {
+    curr = _gson_parse(parser, curr);
+
+    if (parser->had_error)
+    {
+        gson_destroy(curr);
+        curr = NULL;
+        return NULL;
+    }
+
+    return curr;
+
+}
+
+static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
+{
     if (curr == NULL)
     {
         curr = gson_node_create(); // root node
@@ -881,7 +917,8 @@ JSONNode* gson_parse(Parser *parser, JSONNode *curr)
     {
         parser_advance(parser);
         type = parser->current.type;
-        if (parser->had_error) return NULL;
+        if (parser->had_error)
+            break;
 
         switch (type)
         {
@@ -993,9 +1030,9 @@ gson_debug_general(parser, curr);
                 break;
             default: break;
         }
-        if (parser->had_error) return NULL;
+        if (parser->had_error)
+            break;
     }
-    if (parser->had_error) return NULL;
     return curr;
 }
 

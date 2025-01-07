@@ -49,6 +49,8 @@ static JSONNode* parse_single_file(char *filename)
     JSONNode *node = gson_parse(parser, NULL);
     if (node == NULL)
     {
+        free(source);
+        gson_destroy(node);
         parser_destroy(parser);
         return NULL; // failed to parse
     }

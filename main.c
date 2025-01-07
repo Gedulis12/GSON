@@ -70,6 +70,9 @@ int main(int argc, char* argv[])
     JSONNode *node = gson_parse(parser, NULL);
     if (node == NULL)
     {
+        free(source);
+        parser_destroy(parser);
+        gson_destroy(node);
         return 1; // failed to parse
     }
     //
