@@ -66,98 +66,98 @@ int main(int argc, char* argv[])
 
 
     PARSING_TIMER(source);
-    Parser *parser = parser_init(source);
-    JSONNode *node = gson_parse(parser, NULL);
-    if (node == NULL)
-    {
-        free(source);
-        parser_destroy(parser);
-        gson_destroy(node);
-        return 1; // failed to parse
-    }
-    //
-    // SOME TESTING
-    JSONNode *key = gson_find_by_key(node, "\"gender\"");
-    if (key != NULL)
-    {
-        printf("1Found: %s\n", gson_get_key_value(key));
-    } else {
-        printf("1Key not found: gender\n");
-    }
-
-    key = gson_find_by_key(key, "\"gender\"");
-    if (key != NULL)
-    {
-        printf("Key found: %s\n", gson_get_key_value(key));
-    } else {
-        printf("Key not found: gender\n");
-    }
-
-
-    JSONNode *val = gson_find_by_str_val(node, "\"male\"");
-    if (val != NULL)
-    {
-        printf("Val found: %s\n", gson_get_str_value(val));
-    } else {
-        printf("Val not found: male\n");
-    }
-    val = gson_find_by_str_val(val, "\"male\"");
-    if (val != NULL)
-    {
-        printf("Val found: %s\n", gson_get_str_value(val));
-    } else {
-        printf("Val not found: male\n");
-    }
-
-    JSONNode *_float = gson_find_by_float_val(node, 30);
-    if (_float != NULL)
-    {
-        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
-    } else {
-        printf("Val not found: 30.00\n");
-    }
-
-    _float = gson_find_by_float_val(_float, 30);
-    if (_float != NULL)
-    {
-        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
-    } else {
-        printf("Val not found: 30.00\n");
-    }
-
-    _float = gson_find_by_float_val(_float, 30);
-    if (_float != NULL)
-    {
-        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
-    } else {
-        printf("Val not found: 30.00\n");
-    }
-
-
-    if (_float != NULL)
-    {
-        JSONType _float_type = gson_get_object_type(_float);
-        if (_float_type == JSON_NUMBER)
-        {
-            printf("4correct type found, JSON_NUMBER\n");
-        }
-    }
-
-    JSONNode *_bool = gson_find_by_key(node, "\"has_kids\"");
-    if (_bool != NULL)
-    {
-        JSONType bool_type = gson_get_object_type(_bool);
-        if (bool_type == JSON_TRUE_VAL)
-        {
-            printf("5correct type found, JSON_TRUE_VAL\n");
-        }
-    }
+//    Parser *parser = parser_init(source);
+//    JSONNode *node = gson_parse(parser, NULL);
+//    if (node == NULL)
+//    {
+//        free(source);
+//        parser_destroy(parser);
+//        gson_destroy(node);
+//        return 1; // failed to parse
+//    }
+//    //
+//    // SOME TESTING
+//    JSONNode *key = gson_find_by_key(node, "\"gender\"");
+//    if (key != NULL)
+//    {
+//        printf("1Found: %s\n", gson_get_key_value(key));
+//    } else {
+//        printf("1Key not found: gender\n");
+//    }
+//
+//    key = gson_find_by_key(key, "\"gender\"");
+//    if (key != NULL)
+//    {
+//        printf("Key found: %s\n", gson_get_key_value(key));
+//    } else {
+//        printf("Key not found: gender\n");
+//    }
+//
+//
+//    JSONNode *val = gson_find_by_str_val(node, "\"male\"");
+//    if (val != NULL)
+//    {
+//        printf("Val found: %s\n", gson_get_str_value(val));
+//    } else {
+//        printf("Val not found: male\n");
+//    }
+//    val = gson_find_by_str_val(val, "\"male\"");
+//    if (val != NULL)
+//    {
+//        printf("Val found: %s\n", gson_get_str_value(val));
+//    } else {
+//        printf("Val not found: male\n");
+//    }
+//
+//    JSONNode *_float = gson_find_by_float_val(node, 30);
+//    if (_float != NULL)
+//    {
+//        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
+//    } else {
+//        printf("Val not found: 30.00\n");
+//    }
+//
+//    _float = gson_find_by_float_val(_float, 30);
+//    if (_float != NULL)
+//    {
+//        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
+//    } else {
+//        printf("Val not found: 30.00\n");
+//    }
+//
+//    _float = gson_find_by_float_val(_float, 30);
+//    if (_float != NULL)
+//    {
+//        printf("Val found: %s:%f\n", gson_get_key_value(_float), gson_get_float_value(_float));
+//    } else {
+//        printf("Val not found: 30.00\n");
+//    }
+//
+//
+//    if (_float != NULL)
+//    {
+//        JSONType _float_type = gson_get_object_type(_float);
+//        if (_float_type == JSON_NUMBER)
+//        {
+//            printf("4correct type found, JSON_NUMBER\n");
+//        }
+//    }
+//
+//    JSONNode *_bool = gson_find_by_key(node, "\"has_kids\"");
+//    if (_bool != NULL)
+//    {
+//        JSONType bool_type = gson_get_object_type(_bool);
+//        if (bool_type == JSON_TRUE_VAL)
+//        {
+//            printf("5correct type found, JSON_TRUE_VAL\n");
+//        }
+//    }
 
 #if DEBUG==1
     gson_debug_print_tree(node, 0);
 #endif
-    parser_destroy(parser);
-    gson_destroy(node);
+//    parser_destroy(parser);
+//    gson_destroy(node);
     free(source);
 
     return 0;

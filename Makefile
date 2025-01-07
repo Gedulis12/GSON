@@ -1,6 +1,6 @@
 CC=gcc
 INCDIRS=-I./include
-OPT=-O3
+OPT=-O0
 DEFINES=DDEBUG=0
 CFLAGS=-Wall -Wextra -g $(INCDIRS) $(OPT) $(DEPFLAGS) $(foreach D,$(DEFINES),-D$(D))
 
@@ -15,10 +15,12 @@ TEST_DIR=tests
 TEST_SRC=$(TEST_DIR)/tests.c
 TEST_BINARY=gson_test
 
-
 BINARY=gson
+FUZZER=fuzz
 
 all: $(BINARY)
+
+fuzz: $(FUZZER)
 
 $(BINARY): $(LIBRARY)
 	$(CC) -g -L$(LIB) $(INCDIRS) main.c -o $(BINARY) -l$(BINARY)
@@ -36,5 +38,8 @@ test: $(TEST_BINARY)
 $(TEST_BINARY): $(LIBRARY)
 	$(CC) -g -L$(LIB) $(INCDIRS) $(TEST_SRC) -o $(TEST_BINARY) -l$(BINARY)
 
+$(FUZZER): $(LIBRARY)
+	clang++ -g -fsanitize=address,fuzzer fuzz.cpp -o $(FUZZER) -Llib -lgson -I./include
+
 clean:
-	rm -rf $(OBJECTS) $(LIBRARY) $(BINARY) $(TEST_BINARY)
+	rm -rf $(OBJECTS) $(LIBRARY) $(BINARY) $(TEST_BINARY) $(FUZZER)

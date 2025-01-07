@@ -1,6 +1,10 @@
 #ifndef GSON_H_
 #define GSON_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void Parser;
 typedef void JSONNode;
 
@@ -71,5 +75,9 @@ extern float gson_get_float_value(JSONNode *node);
  * returns JSON_FALSE_VAL, JSON_TRUE_VAL or JSON_NULL if the 'node' is of appropriate type
  */
 extern JSONType gson_get_bool_value(JSONNode *node);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GSON_H

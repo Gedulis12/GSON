@@ -378,7 +378,9 @@ static JSONNode* gson_node_object(Parser *parser, JSONNode *curr)
     _gson_parse(parser, curr);
 
     if (parser->had_error)
+    {
         return curr;
+    }
 
     if (parser->current.type == TOKEN_RIGHT_BRACKET)
     {
@@ -446,7 +448,9 @@ static JSONNode* gson_node_array(Parser *parser, JSONNode *curr)
     _gson_parse(parser, curr);
 
     if (parser->had_error)
+    {
         return curr;
+    }
 
     if (parser->current.type == TOKEN_RIGHT_BRACE)
     {
@@ -733,7 +737,7 @@ JSONNode* gson_number(Parser *parser, JSONNode *curr)
     else
     {
         gson_error(parser, "Error");
-        return NULL;
+        return curr;
     }
     size_t length = parser->current.length;
     char *num_str_val = malloc(sizeof(char) * (length + 1));
@@ -793,7 +797,6 @@ JSONNode* gson_true_val(Parser *parser, JSONNode *curr)
     else
     {
         gson_error(parser, "Error");
-        return NULL;
     }
     return curr;
 }
@@ -835,7 +838,6 @@ JSONNode* gson_false_val(Parser *parser, JSONNode *curr)
     else
     {
         gson_error(parser, "Error");
-        return NULL;
     }
     return curr;
 }
@@ -878,7 +880,6 @@ JSONNode* gson_null_val(Parser *parser, JSONNode *curr)
     else
     {
         gson_error(parser, "Error");
-        return NULL;
     }
     return curr;
 }
@@ -913,12 +914,14 @@ static JSONNode* _gson_parse(Parser *parser, JSONNode *curr)
     }
     TokenType type;
 
-    while (parser->current.type != TOKEN_EOF)
+    while (parser->current.type != TOKEN_EOF && !parser->had_error)
     {
         parser_advance(parser);
         type = parser->current.type;
         if (parser->had_error)
+        {
             break;
+        }
 
         switch (type)
         {
@@ -946,11 +949,13 @@ gson_debug_general(parser, curr);
                     if (curr->depth != parser->depth || curr->type == JSON_ROOT || curr->type == JSON_ARRAY)
                     {
                             gson_error(parser, "Error");
+                            break;
                     }
 
                     if (parser->has_next)
                     {
                         gson_error(parser, "trailing ','");
+                        break;
                     }
                     return curr;
                 }
@@ -976,19 +981,31 @@ gson_debug_general(parser, curr);
 
                     if (curr->depth != parser->depth || curr->type == JSON_ROOT || curr->type == JSON_OBJECT)
                     {
-                            gson_error(parser, "Error");
+                        gson_error(parser, "Error");
+                        break;
                     }
 
                     if (parser->has_next)
                     {
                         gson_error(parser, "trailing ','");
+                        break;
                     }
                     return curr;
                 }
             case TOKEN_COMMA:
+                if (curr->type == JSON_ROOT)
+                {
+                    gson_error(parser, "Error");
+                    break;
+                }
                 parser->has_next = true;
                 break;
             case TOKEN_COLON:
+                if (curr->type == JSON_ROOT)
+                {
+                    gson_error(parser, "Error");
+                    break;
+                }
                 parser->next_string_key = false;
                 break;
             case TOKEN_STRING:
@@ -996,6 +1013,7 @@ gson_debug_general(parser, curr);
                     if (curr->type == JSON_ROOT)
                     {
                         gson_error(parser, "Error");
+                        break;
                     }
                     curr = gson_string(parser, curr);
                     break;
@@ -1004,6 +1022,7 @@ gson_debug_general(parser, curr);
                 if (curr->type == JSON_ROOT)
                 {
                     gson_error(parser, "Error");
+                    break;
                 }
                 curr = gson_number(parser, curr);
                 break;
@@ -1011,13 +1030,15 @@ gson_debug_general(parser, curr);
                 if (curr->type == JSON_ROOT)
                 {
                     gson_error(parser, "Error");
+                    break;
                 }
                 curr = gson_true_val(parser, curr);
-                break;
+                    break;
             case TOKEN_FALSE:
                 if (curr->type == JSON_ROOT)
                 {
                     gson_error(parser, "Error");
+                    break;
                 }
                 curr = gson_false_val(parser, curr);
                 break;
@@ -1025,6 +1046,7 @@ gson_debug_general(parser, curr);
                 if (curr->type == JSON_ROOT)
                 {
                     gson_error(parser, "Error");
+                    break;
                 }
                 curr = gson_null_val(parser, curr);
                 break;
