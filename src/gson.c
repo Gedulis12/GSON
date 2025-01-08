@@ -534,7 +534,7 @@ static void gson_string_validate(Parser *parser, char **check)
                     gson_string_substitute(parser, check, '\r', i, len_p);
                     break;
                 case 't':
-                    gson_string_substitute(parser, check, '\r', i, len_p);
+                    gson_string_substitute(parser, check, '\t', i, len_p);
                     break;
                 case 'u':
                     {
